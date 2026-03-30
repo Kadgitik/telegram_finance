@@ -189,7 +189,6 @@ async def set_budget(
                 "telegram_id": telegram_id,
                 "default_currency": "UAH",
                 "custom_categories": [],
-                "budgets": {},
                 "created_at": now,
             },
         },

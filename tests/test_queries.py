@@ -92,6 +92,31 @@ def test_delete_transaction_mock(mock_db):
     assert r.deleted_count == 1
 
 
+def test_set_budget_upsert_no_path_conflict(mock_db):
+    """Mongo не дозволяє в одній upsert-операції $set budgets.k разом із $setOnInsert budgets: {}."""
+    tid = 555
+    now = datetime.now(timezone.utc)
+    mock_db["users"].update_one(
+        {"telegram_id": tid},
+        {
+            "$set": {
+                "budgets.🍔 Їжа": 1000.0,
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "telegram_id": tid,
+                "default_currency": "UAH",
+                "custom_categories": [],
+                "created_at": now,
+            },
+        },
+        upsert=True,
+    )
+    u = mock_db["users"].find_one({"telegram_id": tid})
+    assert u["budgets"]["🍔 Їжа"] == 1000.0
+    assert u["custom_categories"] == []
+
+
 def test_custom_category_update(mock_db):
     tid = 444
     mock_db["users"].insert_one(
