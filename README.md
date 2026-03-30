@@ -1,27 +1,45 @@
-# Telegram Finance Bot
+# Telegram Finance — Mini App + Bot
 
-Особистий облік доходів і витрат у Telegram (aiogram 3, Motor, MongoDB Atlas, matplotlib, webhook + aiohttp).
+Особистий облік у **Telegram Mini App** (React + Vite + Tailwind + Chart.js + `@twa-dev/sdk`) та **FastAPI** REST API з валідацією `initData`. Той самий сервіс роздає статику фронтенду, `/api/*`, `/health` і `POST /webhook` (aiogram). MongoDB Atlas, Motor. Текстові команди бота лишаються як додаток до `/start` з кнопкою WebApp.
 
-## Локальний запуск
+Детальна специфікація: `prompt-mini-app.md`.
 
-1. Python 3.11+
+## Локальний запуск (повний стек)
+
+1. Python 3.11+, Node 20+
 2. `python -m pip install -r requirements.txt`
-3. Скопіюй `.env.example` → `.env` і заповни:
-   - `BOT_TOKEN` — від [@BotFather](https://t.me/BotFather)
-   - `MONGODB_URI` — рядок підключення MongoDB Atlas
-   - `MONGODB_DB` — ім’я БД (наприклад `finance_bot`)
-   - `WEBHOOK_URL` — **базовий** URL без шляху, напр. `https://your-app.onrender.com` (шлях `/webhook` додається автоматично)
-   - `WEBHOOK_SECRET` — довільний секрет (опційно; має збігатися з тим, що підтримує Telegram при встановленні webhook)
-   - `PORT` — порт HTTP (на Render задається автоматично)
+3. У каталозі `frontend`: `npm install` → `npm run build`
+4. Скопіюй корінь `frontend/dist` у `static/` (або збереться автоматично в Docker multi-stage).
+5. Змінні в `.env` (див. `.env.example`): `BOT_TOKEN`, `MONGODB_URI`, `MONGODB_DB`, `WEBHOOK_URL` (базовий HTTPS **без** `/webhook`), опційно `WEBAPP_URL` (якщо відрізняється; інакше = `WEBHOOK_URL`), `WEBHOOK_SECRET`, локально `PORT`.
+6. З кореня репозиторію, з `PYTHONPATH` = корінь проєкту:
 
-4. Публічний HTTPS endpoint для webhook (ngrok, Render тощо).
-5. `python -m bot.main`
+```bash
+# Windows PowerShell
+$env:PYTHONPATH = (Get-Location).Path
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 10000
+```
 
-Ендпоінти:
+Міні-застосунок у Telegram вимагає публічний HTTPS (ngrok/Render). URL у BotFather / кнопці WebApp має збігатися з базовим URL сервісу.
 
-- `GET /health` — перевірка для UptimeRobot
-- `GET /` — короткий JSON про сервіс
-- `POST /webhook` — оновлення Telegram
+### Лише старий aiohttp-бот (без фронту)
+
+```bash
+python -m bot.main
+```
+
+Ендпоінти (FastAPI):
+
+- `GET /` — SPA (після `npm run build` → `static/`)
+- `GET /health` — health check
+- `POST /webhook` — Telegram
+- `GET/POST /api/...` — див. `backend/app/routers/`
+
+Фронтенд:
+
+```bash
+cd frontend && npm run dev   # окремо для розробки UI (проксі API налаштуйте за потреби)
+npm test                     # Vitest
+```
 
 ## Тести
 
@@ -32,6 +50,8 @@ pytest -v
 Для тестів у `tests/conftest.py` задаються фіктивні змінні середовища (реальний Mongo не потрібен).
 
 ## Docker
+
+Один образ: збірка `frontend` → `static/`, потім **uvicorn** `backend.app.main:app`.
 
 ```bash
 docker build -t finance-bot .
@@ -71,9 +91,10 @@ docker run --env-file .env -p 10000:10000 finance-bot
    - `BOT_TOKEN`
    - `MONGODB_URI`
    - `MONGODB_DB` (наприклад `finance_bot` — як у прикладі)
-   - `WEBHOOK_URL` = URL сервісу з панелі Render (https://… **без** `/webhook`)
+   - `WEBHOOK_URL` = URL сервісу з панелі Render (https://… **без** `/webhook`) — той самий базовий URL відкриває **Mini App** у браузері та дає API `/api/...`
+   - опційно `WEBAPP_URL` — якщо кнопка «Відкрити застосунок» має вести на інший домен (рідко; зазвичай дорівнює `WEBHOOK_URL`)
    - `WEBHOOK_SECRET` — згенерований або свій
-3. Після деплою перевірити `https://<ваш-сервіс>.onrender.com/health`.
+3. Після деплою перевірити `https://<ваш-сервіс>.onrender.com/health` і відкрити той самий URL у браузері — має завантажитися React UI.
 4. (Опційно) UptimeRobot на `/health` кожні 10–15 хв — щоб безкоштовний інстанс не «засинав» надовго; перший запит після простою може бути повільним.
 
 ## Команди бота
@@ -85,3 +106,5 @@ docker run --env-file .env -p 10000:10000 finance-bot
 ## Безпека
 
 Не коміть файл `.env`. Якщо рядок підключення до Mongo потрапив у публічний репозиторій — змініть пароль у Atlas.
+
+Запити до `/api/*` вимагають заголовок `Authorization: tma <initData>` (перевірка HMAC за документацією Telegram Web Apps); усередині Telegram Mini App `initData` підставляє клієнт через `@twa-dev/sdk`.

@@ -4,36 +4,14 @@ import logging
 import time
 
 from aiohttp import web
-from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram import Bot
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from bot import config
 from bot.db.mongo import close_client, ensure_indexes, get_db
-from bot.handlers import balance, budgets, categories, charts, export, help as help_h
-from bot.handlers import history, start, stats, transactions
-from bot.middlewares.db import DbMiddleware
+from bot.dispatcher_factory import build_dispatcher
 
 _STARTED = time.monotonic()
-
-
-def _build_dp() -> Dispatcher:
-    dp = Dispatcher(storage=MemoryStorage())
-    dp.update.middleware(DbMiddleware())
-    for r in (
-        start.router,
-        help_h.router,
-        balance.router,
-        stats.router,
-        history.router,
-        categories.router,
-        budgets.router,
-        export.router,
-        charts.router,
-        transactions.router,
-    ):
-        dp.include_router(r)
-    return dp
 
 
 async def on_startup(bot: Bot) -> None:
@@ -73,7 +51,7 @@ async def index(_: web.Request) -> web.Response:
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
     bot = Bot(config.BOT_TOKEN)
-    dp = _build_dp()
+    dp = build_dispatcher()
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 

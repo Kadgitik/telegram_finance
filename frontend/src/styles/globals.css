@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-bg: var(--tg-theme-bg-color, #0f0f0f);
+  --app-text: var(--tg-theme-text-color, #f2f2f2);
+  --app-hint: var(--tg-theme-hint-color, #8e8e93);
+  --app-button: var(--tg-theme-button-color, #007aff);
+  --app-secondary: var(--tg-theme-secondary-bg-color, #1c1c1e);
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

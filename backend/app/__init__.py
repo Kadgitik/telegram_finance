@@ -1,0 +1,1 @@
+"""FastAPI Mini App backend."""

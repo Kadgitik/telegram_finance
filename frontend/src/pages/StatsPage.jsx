@@ -1,0 +1,166 @@
+import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Tooltip,
+} from "chart.js";
+import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { Bar, Doughnut, Line } from "react-chartjs-2";
+import { api } from "../api/client";
+import { useTelegram } from "../hooks/useTelegram";
+import { formatMoney } from "../utils/formatters";
+import { ACCENT } from "../utils/constants";
+
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Filler
+);
+
+const PERIODS = [
+  ["week", "Тиждень"],
+  ["month", "Місяць"],
+  ["3months", "3 міс."],
+  ["year", "Рік"],
+];
+
+export default function StatsPage() {
+  const { initData } = useTelegram();
+  const [period, setPeriod] = useState("month");
+  const [stats, setStats] = useState(null);
+  const [trend, setTrend] = useState(null);
+
+  useEffect(() => {
+    if (!initData) return;
+    (async () => {
+      const [s, t] = await Promise.all([
+        api.get(`/stats?period=${period}`, initData),
+        api.get("/stats/trend?days=30", initData),
+      ]);
+      setStats(s);
+      setTrend(t);
+    })().catch(() => {});
+  }, [initData, period]);
+
+  const labels = stats?.categories?.map((c) => c.name) || [];
+  const dataVals = stats?.categories?.map((c) => c.amount) || [];
+  const colors = labels.map((_, i) => ACCENT.chart[i % ACCENT.chart.length]);
+
+  const doughnutData = {
+    labels,
+    datasets: [
+      {
+        data: dataVals,
+        backgroundColor: colors,
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  const barLabels = trend?.points?.map((p) => p.date.slice(5)) || [];
+  const barVals = trend?.points?.map((p) => p.amount) || [];
+
+  return (
+    <div className="px-4 pt-4 pb-24 max-w-lg mx-auto space-y-6">
+      <h1 className="text-xl font-bold">Статистика</h1>
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {PERIODS.map(([k, lab]) => (
+          <button
+            type="button"
+            key={k}
+            onClick={() => setPeriod(k)}
+            className={`whitespace-nowrap px-3 py-1 rounded-full text-sm ${
+              period === k
+                ? "bg-[var(--app-button)] text-[var(--tg-theme-button-text-color,white)]"
+                : "bg-[var(--app-secondary)]"
+            }`}
+          >
+            {lab}
+          </button>
+        ))}
+      </div>
+
+      {stats && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <p className="text-center text-[var(--app-hint)] text-sm mb-2">
+            Витрати — {formatMoney(stats.total)}
+          </p>
+          <div className="max-w-xs mx-auto">
+            <Doughnut
+              data={doughnutData}
+              options={{
+                cutout: "65%",
+                plugins: { legend: { position: "bottom" } },
+              }}
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {trend && trend.points?.length > 0 && (
+        <div>
+          <p className="text-sm text-[var(--app-hint)] mb-2">Тренд (30 дн.)</p>
+          <Line
+            data={{
+              labels: barLabels,
+              datasets: [
+                {
+                  data: barVals,
+                  borderColor: ACCENT.blue,
+                  backgroundColor: "rgba(0,122,255,0.15)",
+                  fill: true,
+                  tension: 0.4,
+                },
+              ],
+            }}
+            options={{
+              plugins: { legend: { display: false } },
+              scales: {
+                x: {
+                  ticks: { color: "#888" },
+                  grid: { color: "rgba(128,128,128,0.1)" },
+                },
+                y: {
+                  ticks: { color: "#888" },
+                  grid: { color: "rgba(128,128,128,0.1)" },
+                },
+              },
+            }}
+          />
+          <Bar
+            data={{
+              labels: barLabels.slice(-7),
+              datasets: [
+                {
+                  data: barVals.slice(-7),
+                  borderRadius: 8,
+                  backgroundColor: colors[0] || ACCENT.blue,
+                },
+              ],
+            }}
+            options={{
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { color: "#888" } },
+                y: { ticks: { color: "#888" } },
+              },
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

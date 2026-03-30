@@ -1,3 +1,4 @@
+# WEBHOOK_URL у панелі = публічний HTTPS сервісу (напр. https://finance-bot-7pf0.onrender.com), без /webhook.
 services:
   - type: web
     name: finance-bot

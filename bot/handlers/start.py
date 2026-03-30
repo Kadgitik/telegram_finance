@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from aiogram import Router
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from bot import config
 from bot.db import queries
 
 router = Router(name="start")
@@ -21,20 +22,22 @@ async def cmd_start(message: Message, db: AsyncIOMotorDatabase) -> None:
     )
     name = message.from_user.first_name or "друже"
     text = (
-        f"🏦 Привіт, {name}!\n\n"
-        "Я — твій особистий фінансовий помічник. Допоможу вести облік витрат та доходів.\n\n"
-        "📝 Як записати витрату:\n"
-        "   Просто напиши: кава 85\n\n"
-        "💰 Як записати дохід:\n"
-        "   Напиши: +45000 зарплата\n\n"
-        "📊 Корисні команди:\n"
-        "├ /balance — баланс за місяць\n"
-        "├ /stats — статистика по категоріях\n"
-        "├ /chart — графік витрат 📊\n"
-        "├ /history — останні 10 записів\n"
-        "├ /categories — список категорій\n"
-        "├ /export — експорт у CSV\n"
-        "└ /help — допомога\n\n"
-        "💡 Почни просто: напиши назву витрати та суму!"
+        f"🏦 Фінансовий Трекер\n\n"
+        f"Привіт, {name}! Веди облік витрат та доходів прямо в Telegram.\n\n"
+        "📊 Графіки та статистика\n"
+        "💰 Бюджети по категоріях\n"
+        "📱 Зручний мобільний інтерфейс\n\n"
+        "👇 Натисни кнопку, щоб відкрити додаток"
     )
-    await message.answer(text)
+    webapp_url = config.WEBAPP_URL or config.WEBHOOK_BASE_URL
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📱 Відкрити додаток",
+                    web_app=WebAppInfo(url=webapp_url),
+                )
+            ],
+        ]
+    )
+    await message.answer(text, reply_markup=kb)

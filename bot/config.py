@@ -67,3 +67,5 @@ WEBHOOK_SECRET = _telegram_safe_webhook_secret(_req("WEBHOOK_SECRET"))
 PORT = int(os.environ.get("PORT", "10000"))
 
 WEBHOOK_PATH = "/webhook"
+# Публична URL Mini App (якщо порожньо — збігається з WEBHOOK_BASE_URL)
+WEBAPP_URL = (_req("WEBAPP_URL").rstrip("/") or _req("WEBHOOK_URL").rstrip("/"))

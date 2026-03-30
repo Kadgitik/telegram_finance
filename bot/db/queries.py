@@ -142,6 +142,104 @@ async def count_transactions(db: AsyncIOMotorDatabase, telegram_id: int) -> int:
     return await db["transactions"].count_documents({"telegram_id": telegram_id})
 
 
+async def list_transactions(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    *,
+    type_: str | None = None,
+    category: str | None = None,
+    year: int | None = None,
+    month: int | None = None,
+    search: str | None = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    q: dict[str, Any] = {"telegram_id": telegram_id}
+    if type_ in ("expense", "income"):
+        q["type"] = type_
+    if category:
+        q["category"] = category
+    if year is not None and month is not None:
+        start, end_excl = month_range_utc(year, month)
+        q["created_at"] = {"$gte": start, "$lt": end_excl}
+    if search and search.strip():
+        rx = {"$regex": search.strip(), "$options": "i"}
+        q["$or"] = [{"comment": rx}, {"category": rx}]
+    cur = (
+        db["transactions"]
+        .find(q)
+        .sort("created_at", -1)
+        .skip(max(0, skip))
+        .limit(min(100, max(1, limit)))
+    )
+    return await cur.to_list(length=None)
+
+
+async def count_transactions_filtered(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    *,
+    type_: str | None = None,
+    category: str | None = None,
+    year: int | None = None,
+    month: int | None = None,
+    search: str | None = None,
+) -> int:
+    q: dict[str, Any] = {"telegram_id": telegram_id}
+    if type_ in ("expense", "income"):
+        q["type"] = type_
+    if category:
+        q["category"] = category
+    if year is not None and month is not None:
+        start, end_excl = month_range_utc(year, month)
+        q["created_at"] = {"$gte": start, "$lt": end_excl}
+    if search and search.strip():
+        rx = {"$regex": search.strip(), "$options": "i"}
+        q["$or"] = [{"comment": rx}, {"category": rx}]
+    return await db["transactions"].count_documents(q)
+
+
+async def update_transaction_fields(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    oid: ObjectId,
+    *,
+    type_: str | None = None,
+    amount: float | None = None,
+    category: str | None = None,
+    comment: str | None = None,
+) -> bool:
+    patch: dict[str, Any] = {}
+    if type_ in ("expense", "income"):
+        patch["type"] = type_
+    if amount is not None:
+        patch["amount"] = float(amount)
+    if category is not None:
+        patch["category"] = category
+    if comment is not None:
+        patch["comment"] = comment.strip()
+    if not patch:
+        return False
+    patch["updated_at"] = datetime.now(timezone.utc)
+    r = await db["transactions"].update_one(
+        {"telegram_id": telegram_id, "_id": oid},
+        {"$set": patch},
+    )
+    return r.modified_count > 0
+
+
+async def remove_budget(
+    db: AsyncIOMotorDatabase, telegram_id: int, category_label: str
+) -> None:
+    await db["users"].update_one(
+        {"telegram_id": telegram_id},
+        {
+            "$unset": {f"budgets.{category_label}": ""},
+            "$set": {"updated_at": datetime.now(timezone.utc)},
+        },
+    )
+
+
 async def add_custom_category(
     db: AsyncIOMotorDatabase, telegram_id: int, category_label: str
 ) -> None:
