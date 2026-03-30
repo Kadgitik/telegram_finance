@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -31,9 +30,23 @@ async def lifespan(app: FastAPI):
     dp = build_dispatcher()
     app.state.bot = bot
     app.state.dp = dp
+    config.validate_webhook_base_url(config.WEBHOOK_BASE_URL)
     wh_url = f"{config.WEBHOOK_BASE_URL}{config.WEBHOOK_PATH}"
     await bot.set_webhook(url=wh_url, secret_token=config.WEBHOOK_SECRET or None)
-    _LOGGER.info("Webhook set: %s", wh_url)
+    info = await bot.get_webhook_info()
+    _LOGGER.info(
+        "Webhook set: %s | Telegram pending=%s last_error=%s",
+        wh_url,
+        getattr(info, "pending_update_count", None),
+        getattr(info, "last_error_message", None) or "none",
+    )
+    if info.url and info.url != wh_url:
+        _LOGGER.warning(
+            "Невідповідність: Telegram webhook URL у API = %s (очікувалось %s). "
+            "Перевір BOT_TOKEN і зроби redeploy після оновлення WEBHOOK_URL.",
+            info.url,
+            wh_url,
+        )
     yield
     try:
         await bot.delete_webhook(drop_pending_updates=True)
@@ -54,6 +67,7 @@ app.include_router(budgets.router, prefix="/api")
 
 
 @app.get("/health")
+@app.head("/health")
 async def health():
     return {"status": "ok"}
 
