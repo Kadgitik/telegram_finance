@@ -1,6 +1,7 @@
 import hashlib
 import os
 import re
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -22,6 +23,40 @@ def _telegram_safe_webhook_secret(raw: str) -> str:
     if len(s) <= 256 and re.fullmatch(r"[A-Za-z0-9_-]+", s):
         return s
     return hashlib.sha256(s.encode("utf-8")).hexdigest()[:64]
+
+
+def validate_webhook_base_url(url: str) -> None:
+    """Перевірка перед set_webhook: Telegram резолвить хост і вимагає https."""
+    if not url or not url.strip():
+        raise RuntimeError(
+            "WEBHOOK_URL порожній. У Render → Environment вкажіть URL сервісу "
+            "(наприклад https://finance-bot-xxxx.onrender.com), без /webhook на кінці."
+        )
+    u = url.strip().rstrip("/")
+    if not u.startswith("https://"):
+        raise RuntimeError(
+            "WEBHOOK_URL має починатися з https:// (як у панелі Render). "
+            f"Зараз: {u[:100]!r}"
+        )
+    parsed = urlparse(u)
+    if not parsed.netloc:
+        raise RuntimeError(
+            "WEBHOOK_URL не містить імені хоста — вставте повний URL з копіювання з Render."
+        )
+    host = parsed.hostname or ""
+    hints = (
+        "placeholder",
+        "your-app",
+        "your-service",
+        "changeme",
+        "example.invalid",
+    )
+    low = host.lower()
+    for h in hints:
+        if h in low:
+            raise RuntimeError(
+                f"WEBHOOK_URL схожий на заглушку ({host!r}). Вкажіть точний URL з карточки сервісу в Render."
+            )
 
 
 BOT_TOKEN = _req("BOT_TOKEN")

@@ -37,14 +37,22 @@ def _build_dp() -> Dispatcher:
 
 
 async def on_startup(bot: Bot) -> None:
-    db = get_db()
-    await ensure_indexes(db)
-    wh_url = f"{config.WEBHOOK_BASE_URL}{config.WEBHOOK_PATH}"
-    await bot.set_webhook(
-        url=wh_url,
-        secret_token=config.WEBHOOK_SECRET or None,
-    )
-    logging.getLogger(__name__).info("Webhook set: %s", wh_url)
+    try:
+        config.validate_webhook_base_url(config.WEBHOOK_BASE_URL)
+        db = get_db()
+        await ensure_indexes(db)
+        wh_url = f"{config.WEBHOOK_BASE_URL}{config.WEBHOOK_PATH}"
+        await bot.set_webhook(
+            url=wh_url,
+            secret_token=config.WEBHOOK_SECRET or None,
+        )
+        logging.getLogger(__name__).info("Webhook set: %s", wh_url)
+    except BaseException:
+        try:
+            await bot.session.close()
+        except Exception:
+            pass
+        raise
 
 
 async def on_shutdown(bot: Bot) -> None:
