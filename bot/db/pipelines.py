@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+
+def month_range_utc(year: int, month: int) -> tuple[datetime, datetime]:
+    start = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_excl = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_excl = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    return start, end_excl
+
+
+def pipeline_balance_month(telegram_id: int, year: int, month: int) -> list[dict[str, Any]]:
+    start, end_excl = month_range_utc(year, month)
+    return [
+        {
+            "$match": {
+                "telegram_id": telegram_id,
+                "created_at": {"$gte": start, "$lt": end_excl},
+            }
+        },
+        {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
+    ]
+
+
+def pipeline_stats_expense_by_category(
+    telegram_id: int,
+    start: datetime,
+    end: datetime,
+    *,
+    end_inclusive: bool = False,
+) -> list[dict[str, Any]]:
+    bound: dict[str, Any] = {"$gte": start}
+    bound["$lte" if end_inclusive else "$lt"] = end
+    return [
+        {
+            "$match": {
+                "telegram_id": telegram_id,
+                "type": "expense",
+                "created_at": bound,
+            }
+        },
+        {"$group": {"_id": "$category", "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
+        {"$sort": {"total": -1}},
+    ]
+
+
+def pipeline_daily_expense_totals(
+    telegram_id: int,
+    start: datetime,
+    end: datetime,
+    *,
+    end_inclusive: bool = False,
+) -> list[dict[str, Any]]:
+    bound: dict[str, Any] = {"$gte": start}
+    bound["$lte" if end_inclusive else "$lt"] = end
+    return [
+        {
+            "$match": {
+                "telegram_id": telegram_id,
+                "type": "expense",
+                "created_at": bound,
+            }
+        },
+        {
+            "$group": {
+                "_id": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"},
+                },
+                "total": {"$sum": "$amount"},
+            }
+        },
+        {"$sort": {"_id": 1}},
+    ]

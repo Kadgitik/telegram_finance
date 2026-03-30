@@ -1,0 +1,13 @@
+.env
+.env.local
+.env.*.local
+.cursor/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.csv
+*.log
+.DS_Store
+Thumbs.db
