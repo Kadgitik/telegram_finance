@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, BarChart3, List } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, BarChart3, List, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
 import { useFxRate } from "../hooks/useFxRate";
@@ -12,6 +12,7 @@ import { formatMoney, formatTime, formatUsdApprox } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
 export default function HomePage() {
+  const nav = useNavigate();
   const { initData, ready } = useTelegram();
   const h = useHaptic();
   const [balance, setBalance] = useState(null);
@@ -55,7 +56,7 @@ export default function HomePage() {
   }, [ready, initData, month]);
 
   return (
-    <div className="px-4 pt-4 max-w-lg mx-auto">
+    <div className="px-4 pt-4 pb-24 max-w-lg mx-auto">
       <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-2" />
 
       {!initData && (
@@ -66,12 +67,24 @@ export default function HomePage() {
 
       {err && <p className="text-red-400 text-sm mb-2">{err}</p>}
 
-      <MonthSwitcher
-        month={month}
-        onChange={setStoredMonth}
-        periodLabel={balance?.period_label || ""}
-        subtitle={`День зарплати: ${payDay}`}
-      />
+      <div className="flex items-stretch gap-2 mb-1">
+        <div className="flex-1 min-w-0">
+          <MonthSwitcher
+            month={month}
+            onChange={setStoredMonth}
+            periodLabel={balance?.period_label || ""}
+            subtitle={`День зарплати: ${payDay}`}
+          />
+        </div>
+        <button
+          type="button"
+          className="shrink-0 h-[46px] w-[46px] rounded-xl border border-white/10 bg-[var(--app-secondary)] flex items-center justify-center mt-1"
+          onClick={() => nav("/settings")}
+          aria-label="Налаштування"
+        >
+          <Settings size={18} />
+        </button>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}

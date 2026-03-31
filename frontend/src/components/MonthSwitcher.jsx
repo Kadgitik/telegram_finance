@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatMonthLabel, parseMonthKey, shiftMonth } from "../utils/month";
 
 function buildMonthList(current, count = 24) {
@@ -15,21 +16,34 @@ export default function MonthSwitcher({ month, onChange, subtitle = "", periodLa
   const [open, setOpen] = useState(false);
   const list = useMemo(() => buildMonthList(month, 24), [month]);
   const { year, month: m } = parseMonthKey(month);
+  const monthLabel = formatMonthLabel(`${year}-${String(m).padStart(2, "0")}`);
   return (
-    <div className="rounded-xl bg-[var(--app-secondary)] px-3 py-2">
-      <div className="flex items-center justify-between">
-        <button type="button" className="px-2 text-lg" onClick={() => onChange(shiftMonth(month, -1))}>
-          ◀
+    <div className="rounded-2xl border border-white/10 bg-[var(--app-secondary)]/95 px-3 py-2.5 shadow-[0_8px_20px_rgba(0,0,0,0.25)]">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          className="h-9 w-9 rounded-xl bg-black/25 border border-white/10 flex items-center justify-center text-[var(--app-text)]"
+          onClick={() => onChange(shiftMonth(month, -1))}
+          aria-label="Попередній місяць"
+        >
+          <ChevronLeft size={18} />
         </button>
-        <button type="button" className="text-center" onClick={() => setOpen(true)}>
-          <p className="font-semibold">{formatMonthLabel(`${year}-${String(m).padStart(2, "0")}`)}</p>
-          {periodLabel ? (
-            <p className="text-xs text-[var(--app-hint)]">Фін. період: {periodLabel}</p>
-          ) : null}
-          {subtitle ? <p className="text-xs text-[var(--app-hint)]">{subtitle}</p> : null}
+        <button type="button" className="text-center min-w-0 flex-1" onClick={() => setOpen(true)}>
+          <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--app-hint)] mb-0.5">Фінансовий місяць</p>
+          <p className="font-semibold text-[19px] leading-tight">{monthLabel}</p>
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-[var(--app-hint)]">
+            <CalendarDays size={13} />
+            {periodLabel ? <span>Період: {periodLabel}</span> : null}
+          </div>
+          {subtitle ? <p className="text-xs text-[var(--app-hint)] mt-0.5">{subtitle}</p> : null}
         </button>
-        <button type="button" className="px-2 text-lg" onClick={() => onChange(shiftMonth(month, 1))}>
-          ▶
+        <button
+          type="button"
+          className="h-9 w-9 rounded-xl bg-black/25 border border-white/10 flex items-center justify-center text-[var(--app-text)]"
+          onClick={() => onChange(shiftMonth(month, 1))}
+          aria-label="Наступний місяць"
+        >
+          <ChevronRight size={18} />
         </button>
       </div>
       {open ? (

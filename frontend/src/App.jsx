@@ -60,7 +60,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "var(--tg-viewport-height, 100dvh)" }}>
-      {isRootTab && (
+      {isRootTab && loc.pathname !== "/" && (
         <button
           type="button"
           className="fixed top-3 right-4 z-[60] rounded-full p-2 bg-[var(--app-secondary)] border border-white/10"
