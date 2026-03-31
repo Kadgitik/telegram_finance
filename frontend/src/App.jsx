@@ -1,4 +1,5 @@
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Settings } from "lucide-react";
 import BottomNav from "./components/BottomNav";
 import AddPage from "./pages/AddPage";
 import BudgetsPage from "./pages/BudgetsPage";
@@ -14,12 +15,22 @@ import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 export default function App() {
   const loc = useLocation();
   const nav = useNavigate();
-  const rootTabs = ["/", "/stats", "/history", "/savings", "/settings"];
+  const rootTabs = ["/", "/stats", "/history", "/budgets"];
   const isRootTab = rootTabs.includes(loc.pathname);
   const hideNav = !isRootTab;
   useTelegramBackButton(!isRootTab, () => nav(-1));
   return (
     <div style={{ minHeight: "var(--tg-viewport-height, 100dvh)" }}>
+      {isRootTab && (
+        <button
+          type="button"
+          className="fixed top-3 right-4 z-[60] rounded-full p-2 bg-[var(--app-secondary)] border border-white/10"
+          onClick={() => nav("/settings")}
+          aria-label="Налаштування"
+        >
+          <Settings size={16} />
+        </button>
+      )}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/add" element={<AddPage />} />
