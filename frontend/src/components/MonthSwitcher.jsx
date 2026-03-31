@@ -11,7 +11,7 @@ function buildMonthList(current, count = 24) {
   return items.reverse();
 }
 
-export default function MonthSwitcher({ month, onChange, subtitle = "" }) {
+export default function MonthSwitcher({ month, onChange, subtitle = "", periodLabel = "" }) {
   const [open, setOpen] = useState(false);
   const list = useMemo(() => buildMonthList(month, 24), [month]);
   const { year, month: m } = parseMonthKey(month);
@@ -23,6 +23,9 @@ export default function MonthSwitcher({ month, onChange, subtitle = "" }) {
         </button>
         <button type="button" className="text-center" onClick={() => setOpen(true)}>
           <p className="font-semibold">{formatMonthLabel(`${year}-${String(m).padStart(2, "0")}`)}</p>
+          {periodLabel ? (
+            <p className="text-xs text-[var(--app-hint)]">Фін. період: {periodLabel}</p>
+          ) : null}
           {subtitle ? <p className="text-xs text-[var(--app-hint)]">{subtitle}</p> : null}
         </button>
         <button type="button" className="px-2 text-lg" onClick={() => onChange(shiftMonth(month, 1))}>

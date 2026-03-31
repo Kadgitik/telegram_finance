@@ -65,7 +65,8 @@ export default function HomePage() {
       <MonthSwitcher
         month={month}
         onChange={setStoredMonth}
-        subtitle={balance?.period_label || `pay day: ${payDay}`}
+        periodLabel={balance?.period_label || ""}
+        subtitle={`pay day: ${payDay}`}
       />
 
       <motion.div

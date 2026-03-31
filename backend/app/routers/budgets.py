@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.deps import telegram_user_id
 from backend.app.models.schemas import BudgetCreate, BudgetPatch
-from backend.app.services.periods import month_window_from_key, resolve_pay_day
+from backend.app.services.periods import human_period, month_window_from_key, resolve_pay_day
 from bot.db import queries
 from bot.db.mongo import get_db
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -72,6 +72,7 @@ async def list_budgets(
     return {
         "month": month_key,
         "pay_day": pd,
+        "period_label": human_period(start, end_excl),
         "budgets": out,
         "total_limit": total_limit,
         "total_spent": total_spent,

@@ -23,6 +23,7 @@ export default function BudgetsPage() {
   const { initData } = useTelegram();
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ total_limit: 0, total_spent: 0, total_percent: 0 });
+  const [periodLabel, setPeriodLabel] = useState("");
   const [cat, setCat] = useState("🍔 Їжа");
   const [amt, setAmt] = useState("");
   const [month, setStoredMonth] = useStoredMonth();
@@ -32,6 +33,7 @@ export default function BudgetsPage() {
     if (!initData) return;
     const r = await api.get(`/budgets?month=${month}`, initData);
     setRows(r.budgets || []);
+    setPeriodLabel(r.period_label || "");
     setSummary({
       total_limit: r.total_limit || 0,
       total_spent: r.total_spent || 0,
@@ -80,6 +82,7 @@ export default function BudgetsPage() {
       <MonthSwitcher
         month={month}
         onChange={setStoredMonth}
+        periodLabel={periodLabel}
         subtitle={`Витрачено ${formatMoney(summary.total_spent)} з ${formatMoney(summary.total_limit)} (${summary.total_percent}%)`}
       />
       {rows.length > 0 && (

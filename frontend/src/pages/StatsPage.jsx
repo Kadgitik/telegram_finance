@@ -79,7 +79,7 @@ export default function StatsPage() {
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto space-y-6">
       <h1 className="text-xl font-bold">Статистика</h1>
-      <MonthSwitcher month={month} onChange={setStoredMonth} subtitle={stats?.period_label || ""} />
+      <MonthSwitcher month={month} onChange={setStoredMonth} periodLabel={stats?.period_label || ""} />
       <div className="flex gap-2 overflow-x-auto pb-2">
         {PERIODS.map(([k, lab]) => (
           <button
