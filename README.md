@@ -31,6 +31,8 @@ python -m bot.main
 
 - `GET /` — SPA (після `npm run build` → `static/`)
 - `GET /health` — health check
+- `GET /health/live` — lightweight liveness endpoint (для UptimeRobot)
+- `GET /health/ready` — readiness endpoint з перевіркою MongoDB
 - `POST /webhook` — Telegram
 - `GET/POST /api/...` — див. `backend/app/routers/`
 
@@ -95,7 +97,14 @@ docker run --env-file .env -p 10000:10000 finance-bot
    - опційно `WEBAPP_URL` — якщо кнопка «Відкрити застосунок» має вести на інший домен (рідко; зазвичай дорівнює `WEBHOOK_URL`)
    - `WEBHOOK_SECRET` — згенерований або свій
 3. Після деплою перевірити `https://<ваш-сервіс>.onrender.com/health` і відкрити той самий URL у браузері — має завантажитися React UI.
-4. (Опційно) UptimeRobot на `/health` кожні 10–15 хв — щоб безкоштовний інстанс не «засинав» надовго; перший запит після простою може бути повільним.
+4. (Опційно) UptimeRobot на `/health/live` кожні 5 хв — це найкращий компроміс для free tier.
+   - Тип монітора: HTTP(s)
+   - URL: `https://<ваш-сервіс>.onrender.com/health/live`
+   - Interval: `5 minutes`
+   - Timeout: `30 seconds`
+   - Alerts: за бажанням (email/Telegram)
+
+> Важливо: на free-плані Render немає 100% гарантії “ніколи не засинати”. Для максимально стабільного uptime потрібен paid instance (Always On).
 
 ## Команди бота
 

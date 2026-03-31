@@ -83,6 +83,28 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/health/live")
+@app.head("/health/live")
+async def health_live():
+    # Lightweight liveness probe for pingers (UptimeRobot, cron-job.org, etc.).
+    return {"status": "ok", "kind": "live"}
+
+
+@app.get("/health/ready")
+@app.head("/health/ready")
+async def health_ready():
+    # Readiness probe with DB ping.
+    db = get_db()
+    try:
+        await db.command("ping")
+        return {"status": "ok", "kind": "ready", "db": "ok"}
+    except Exception:
+        return JSONResponse(
+            {"status": "degraded", "kind": "ready", "db": "down"},
+            status_code=503,
+        )
+
+
 @app.post("/webhook")
 async def telegram_webhook(request: Request) -> Response:
     if config.WEBHOOK_SECRET:
