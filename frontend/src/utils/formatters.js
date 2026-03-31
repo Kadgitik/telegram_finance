@@ -9,6 +9,15 @@ export function formatMoney(n) {
   );
 }
 
+export function formatUsdApprox(uah, usdRate) {
+  const value = Number(uah) || 0;
+  const rate = Number(usdRate) || 0;
+  if (!rate) return "";
+  const usd = value / rate;
+  const digits = Math.abs(usd) < 100 ? 2 : 0;
+  return `≈ $${new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(usd)}`;
+}
+
 export function formatTime(iso) {
   try {
     return format(new Date(iso), "HH:mm", { locale: uk });

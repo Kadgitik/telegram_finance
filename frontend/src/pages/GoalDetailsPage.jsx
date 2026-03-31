@@ -11,9 +11,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
-import { formatMoney } from "../utils/formatters";
+import { formatMoney, formatUsdApprox } from "../utils/formatters";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -22,6 +23,7 @@ export default function GoalDetailsPage() {
   const nav = useNavigate();
   const { initData } = useTelegram();
   const h = useHaptic();
+  const usdRate = useFxRate();
   const [goal, setGoal] = useState(null);
   const [value, setValue] = useState("");
   const [editMode, setEditMode] = useState(false);
@@ -103,6 +105,9 @@ export default function GoalDetailsPage() {
       <h1 className="text-xl font-bold">{goal.emoji} {goal.name}</h1>
       <div className="rounded-xl bg-[var(--app-secondary)] p-3">
         <p className="text-sm">{formatMoney(goal.current_amount)} / {formatMoney(goal.target_amount)} ({goal.percent}%)</p>
+        <p className="text-[10px] text-[var(--app-hint)]">
+          {formatUsdApprox(goal.current_amount, usdRate)} / {formatUsdApprox(goal.target_amount, usdRate)}
+        </p>
         <div className="h-2 rounded-full bg-black/30 mt-2">
           <div className="h-2 rounded-full bg-green-500" style={{ width: `${Math.min(100, goal.percent)}%` }} />
         </div>

@@ -1,12 +1,14 @@
 import { motion } from "framer-motion";
+import { ArrowDownLeft, ArrowUpRight, BarChart3, List } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
+import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../utils/month";
-import { formatMoney, formatTime } from "../utils/formatters";
+import { formatMoney, formatTime, formatUsdApprox } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
 export default function HomePage() {
@@ -17,6 +19,7 @@ export default function HomePage() {
   const [err, setErr] = useState("");
   const [month, setStoredMonth] = useStoredMonth();
   const [payDay, setPayDay] = useState(1);
+  const usdRate = useFxRate();
 
   const load = async () => {
     if (!initData) return;
@@ -66,7 +69,7 @@ export default function HomePage() {
         month={month}
         onChange={setStoredMonth}
         periodLabel={balance?.period_label || ""}
-        subtitle={`pay day: ${payDay}`}
+        subtitle={`День зарплати: ${payDay}`}
       />
 
       <motion.div
@@ -81,6 +84,10 @@ export default function HomePage() {
         <p className="text-4xl font-bold my-2">
           {balance ? formatMoney(balance.balance) : "—"}
         </p>
+        <p className="text-xs opacity-90">
+          {balance ? formatUsdApprox(balance.balance, usdRate) : ""}
+          {usdRate ? ` · 1$ = ${usdRate.toFixed(2)} ₴` : ""}
+        </p>
         <div className="flex gap-6 text-sm">
           <span style={{ color: ACCENT.green }}>
             ↑ {balance ? formatMoney(balance.income) : "—"}
@@ -91,20 +98,24 @@ export default function HomePage() {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-4 gap-2 mb-6">
+      <div className="grid grid-cols-2 gap-2 mb-6">
         {[
-          ["➕ Витрата", "/add?type=expense", ACCENT.red],
-          ["💰 Дохід", "/add?type=income", ACCENT.green],
-          ["📊 Графік", "/stats", ACCENT.blue],
-          ["📋 Всі", "/history", ACCENT.purple],
-        ].map(([label, to, color]) => (
+          ["Додати витрату", "/add?type=expense", ACCENT.red, ArrowDownLeft, "Записати витрату"],
+          ["Додати дохід", "/add?type=income", ACCENT.green, ArrowUpRight, "Записати надходження"],
+          ["Статистика", "/stats", ACCENT.blue, BarChart3, "Графіки та аналітика"],
+          ["Історія", "/history", ACCENT.purple, List, "Усі операції"],
+        ].map(([label, to, color, Icon, sub]) => (
           <Link key={to} to={to} onClick={() => h.light()}>
             <motion.div
               whileTap={{ scale: 0.96 }}
-              className="rounded-xl p-2 text-center text-xs font-medium shadow bg-[var(--app-secondary)] border border-white/5"
-              style={{ borderTopColor: color }}
+              className="rounded-xl p-3 text-left shadow bg-[var(--app-secondary)] border border-white/5 min-h-[72px]"
+              style={{ borderColor: `${color}66` }}
             >
-              {label}
+              <div className="flex items-center gap-2 mb-1">
+                <Icon size={16} color={color} />
+                <p className="text-sm font-semibold">{label}</p>
+              </div>
+              <p className="text-xs text-[var(--app-hint)]">{sub}</p>
             </motion.div>
           </Link>
         ))}
@@ -134,6 +145,9 @@ export default function HomePage() {
             >
               {x.type === "income" ? "+" : "-"}
               {formatMoney(x.amount)}
+              <span className="block text-[10px] text-[var(--app-hint)]">
+                {formatUsdApprox(x.amount, usdRate)}
+              </span>
             </span>
             <span className="text-xs text-[var(--app-hint)] text-right tabular-nums w-[52px]">
               {formatTime(x.created_at)}

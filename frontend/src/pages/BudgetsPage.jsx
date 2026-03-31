@@ -12,9 +12,10 @@ import { Link } from "react-router-dom";
 import { Bar, Doughnut } from "react-chartjs-2";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
+import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../utils/month";
-import { formatMoney } from "../utils/formatters";
+import { formatMoney, formatUsdApprox } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
@@ -28,6 +29,7 @@ export default function BudgetsPage() {
   const [amt, setAmt] = useState("");
   const [month, setStoredMonth] = useStoredMonth();
   const [categoryOptions, setCategoryOptions] = useState([]);
+  const usdRate = useFxRate();
 
   const load = async () => {
     if (!initData) return;
@@ -83,7 +85,7 @@ export default function BudgetsPage() {
         month={month}
         onChange={setStoredMonth}
         periodLabel={periodLabel}
-        subtitle={`Витрачено ${formatMoney(summary.total_spent)} з ${formatMoney(summary.total_limit)} (${summary.total_percent}%)`}
+        subtitle={`Витрачено ${formatMoney(summary.total_spent)} (${formatUsdApprox(summary.total_spent, usdRate)}) з ${formatMoney(summary.total_limit)} (${summary.total_percent}%)`}
       />
       {rows.length > 0 && (
         <div className="rounded-xl bg-[var(--app-secondary)] p-3 mb-4 space-y-3">
@@ -135,6 +137,9 @@ export default function BudgetsPage() {
               </Link>
               <span className="text-sm tabular-nums">
                 {formatMoney(row.spent)} / {formatMoney(row.limit)}
+                <span className="block text-[10px] text-[var(--app-hint)] text-right">
+                  {formatUsdApprox(row.spent, usdRate)} / {formatUsdApprox(row.limit, usdRate)}
+                </span>
               </span>
               <button type="button" className="text-red-400 text-sm" onClick={() => del(row.category)}>
                 ✕
@@ -157,7 +162,9 @@ export default function BudgetsPage() {
               />
             </div>
             <p className="text-xs text-[var(--app-hint)] mt-1">
-              {row.remaining >= 0 ? `Залишилось: ${formatMoney(row.remaining)}` : "Перевищено!"}
+              {row.remaining >= 0
+                ? `Залишилось: ${formatMoney(row.remaining)} (${formatUsdApprox(row.remaining, usdRate)})`
+                : "Перевищено!"}
             </p>
           </div>
         ))}

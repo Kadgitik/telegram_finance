@@ -11,15 +11,17 @@ import { Bar } from "react-chartjs-2";
 import confetti from "canvas-confetti";
 import { api } from "../api/client";
 import { Link } from "react-router-dom";
+import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
-import { formatMoney } from "../utils/formatters";
+import { formatMoney, formatUsdApprox } from "../utils/formatters";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 export default function SavingsPage() {
   const { initData } = useTelegram();
   const h = useHaptic();
+  const usdRate = useFxRate();
   const [tab, setTab] = useState("savings");
   const [savings, setSavings] = useState({ total: 0, history: [], monthly_breakdown: [] });
   const [goals, setGoals] = useState([]);
@@ -128,6 +130,9 @@ export default function SavingsPage() {
           <div className="rounded-xl bg-[var(--app-secondary)] p-4">
             <p className="text-sm text-[var(--app-hint)]">Всього накопичено</p>
             <p className="text-3xl font-bold">{formatMoney(savings.total || 0)}</p>
+            <p className="text-xs text-[var(--app-hint)]">
+              {formatUsdApprox(savings.total || 0, usdRate)}
+            </p>
           </div>
           {chart.labels.length > 0 && (
             <div className="rounded-xl bg-[var(--app-secondary)] p-3">
@@ -164,6 +169,9 @@ export default function SavingsPage() {
               <li key={x.id} className="rounded-xl bg-[var(--app-secondary)] px-3 py-2 flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-medium text-green-400">+{formatMoney(x.amount)}</p>
+                  <p className="text-[10px] text-[var(--app-hint)]">
+                    {formatUsdApprox(x.amount, usdRate)}
+                  </p>
                   <p className="text-xs text-[var(--app-hint)] truncate">{x.comment || "Без коментаря"}</p>
                 </div>
                 <button type="button" className="text-red-400 text-xs" onClick={() => removeSavings(x.id)}>
@@ -214,6 +222,9 @@ export default function SavingsPage() {
                 <Link to={`/goals/${g.id}`} className="font-semibold block">{g.emoji} {g.name}</Link>
                 <p className="text-sm">
                   {formatMoney(g.current_amount)} / {formatMoney(g.target_amount)} ({g.percent}%)
+                </p>
+                <p className="text-[10px] text-[var(--app-hint)]">
+                  {formatUsdApprox(g.current_amount, usdRate)} / {formatUsdApprox(g.target_amount, usdRate)}
                 </p>
                 <div className="h-2 rounded-full bg-black/30">
                   <div className="h-2 rounded-full bg-green-500" style={{ width: `${Math.min(100, g.percent)}%` }} />

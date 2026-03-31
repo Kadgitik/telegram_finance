@@ -15,9 +15,10 @@ import { useEffect, useState } from "react";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
+import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../utils/month";
-import { formatMoney } from "../utils/formatters";
+import { formatMoney, formatUsdApprox } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
 ChartJS.register(
@@ -45,6 +46,7 @@ export default function StatsPage() {
   const [stats, setStats] = useState(null);
   const [trend, setTrend] = useState(null);
   const [month, setStoredMonth] = useStoredMonth();
+  const usdRate = useFxRate();
 
   useEffect(() => {
     if (!initData) return;
@@ -100,7 +102,7 @@ export default function StatsPage() {
       {stats && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <p className="text-center text-[var(--app-hint)] text-sm mb-2">
-            Витрати — {formatMoney(stats.total)}
+            Витрати — {formatMoney(stats.total)} ({formatUsdApprox(stats.total, usdRate)})
           </p>
           <div className="max-w-xs mx-auto">
             <Doughnut
@@ -170,6 +172,9 @@ export default function StatsPage() {
           <p className="text-sm text-[var(--app-hint)] mb-1">Бюджети</p>
           <p className="font-semibold">
             {formatMoney(stats.budget_summary.total_spent)} з {formatMoney(stats.budget_summary.total_limit)}
+          </p>
+          <p className="text-xs text-[var(--app-hint)]">
+            {formatUsdApprox(stats.budget_summary.total_spent, usdRate)} з {formatUsdApprox(stats.budget_summary.total_limit, usdRate)}
           </p>
           <p className="text-xs text-[var(--app-hint)]">{stats.budget_summary.total_percent}% використано</p>
         </div>

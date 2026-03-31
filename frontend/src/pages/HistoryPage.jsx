@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
-import { formatDayLabel, formatMoney, formatTime } from "../utils/formatters";
+import { formatDayLabel, formatMoney, formatTime, formatUsdApprox } from "../utils/formatters";
 import { useStoredMonth } from "../utils/month";
 
 export default function HistoryPage() {
@@ -14,6 +15,7 @@ export default function HistoryPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [month] = useStoredMonth();
+  const usdRate = useFxRate();
 
   const load = async () => {
     if (!initData) return;
@@ -102,6 +104,9 @@ export default function HistoryPage() {
                 >
                   {x.type === "income" ? "+" : "-"}
                   {formatMoney(x.amount)}
+                  <span className="block text-[10px] text-[var(--app-hint)] text-right">
+                    {formatUsdApprox(x.amount, usdRate)}
+                  </span>
                 </span>
                 <button
                   type="button"

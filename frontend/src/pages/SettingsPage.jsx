@@ -177,7 +177,7 @@ export default function SettingsPage() {
           </ul>
         ) : (
           <p className="text-xs text-[var(--app-hint)]">
-            Немає місячних винятків. Діє загальний pay day.
+            Немає місячних винятків. Діє загальний день зарплати.
           </p>
         )}
       </div>

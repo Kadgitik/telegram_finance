@@ -5,6 +5,7 @@ import io
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
@@ -15,6 +16,8 @@ from bot.db.mongo import get_db
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 router = APIRouter()
+_FX_CACHE: dict[str, Any] = {"rate": None, "updated_at": None}
+_FX_TTL_SECONDS = 600
 
 
 def _db() -> AsyncIOMotorDatabase:
@@ -274,4 +277,43 @@ async def _budget_summary(
         "total_limit": total_limit,
         "total_spent": total_spent,
         "total_percent": round((total_spent / total_limit) * 100, 1) if total_limit else 0.0,
+    }
+
+
+@router.get("/fx/usd-uah")
+async def usd_uah_rate() -> dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    updated_at = _FX_CACHE.get("updated_at")
+    if (
+        _FX_CACHE.get("rate") is not None
+        and isinstance(updated_at, datetime)
+        and (now - updated_at).total_seconds() < _FX_TTL_SECONDS
+    ):
+        return {
+            "pair": "USD/UAH",
+            "rate": float(_FX_CACHE["rate"]),
+            "source": "cache",
+            "updated_at": updated_at.isoformat(),
+        }
+    async with httpx.AsyncClient(timeout=6.0) as client:
+        resp = await client.get(
+            "https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=11"
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    usd = next((x for x in data if x.get("ccy") == "USD" and x.get("base_ccy") == "UAH"), None)
+    if not usd:
+        raise HTTPException(502, "Не вдалося отримати курс USD/UAH")
+    buy = float(usd.get("buy", 0))
+    sale = float(usd.get("sale", 0))
+    if buy <= 0 or sale <= 0:
+        raise HTTPException(502, "Некоректні дані курсу")
+    rate = round((buy + sale) / 2, 4)
+    _FX_CACHE["rate"] = rate
+    _FX_CACHE["updated_at"] = now
+    return {
+        "pair": "USD/UAH",
+        "rate": rate,
+        "source": "privatbank",
+        "updated_at": now.isoformat(),
     }
