@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHaptic } from "../hooks/useHaptic";
@@ -21,6 +21,8 @@ export default function AddPage() {
   const [category, setCategory] = useState("");
   const [comment, setComment] = useState("");
   const [customCats, setCustomCats] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const { initData } = useTelegram();
   const h = useHaptic();
   const nav = useNavigate();
@@ -140,10 +142,12 @@ export default function AddPage() {
       />
       <button
         type="button"
-        disabled={!amount}
+        disabled={!amount || saving}
         className="mt-4 w-full py-3 rounded-xl bg-[var(--app-button)] text-[var(--tg-theme-button-text-color,white)] font-medium disabled:opacity-50 sticky bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]"
         onClick={async () => {
-          if (!initData || amount <= 0) return;
+          if (!initData || amount <= 0 || savingRef.current) return;
+          savingRef.current = true;
+          setSaving(true);
           try {
             await api.post("/transactions", initData, {
               type: kind,
@@ -155,10 +159,12 @@ export default function AddPage() {
             nav(-1);
           } catch {
             h.error();
+            setSaving(false);
+            savingRef.current = false;
           }
         }}
       >
-        Зберегти
+        {saving ? "Збереження..." : "Зберегти"}
       </button>
     </div>
   );
