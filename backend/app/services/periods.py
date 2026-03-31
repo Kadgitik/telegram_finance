@@ -40,11 +40,21 @@ async def resolve_pay_day(
     db: AsyncIOMotorDatabase,
     telegram_id: int,
     pay_day: int | None = None,
+    month_key: str | None = None,
 ) -> int:
     if pay_day is not None:
         return max(1, min(28, int(pay_day)))
-    user = await db["users"].find_one({"telegram_id": telegram_id}, {"pay_day": 1})
-    return max(1, min(28, int((user or {}).get("pay_day", 1))))
+    user = await db["users"].find_one(
+        {"telegram_id": telegram_id},
+        {"pay_day": 1, "pay_day_overrides": 1},
+    )
+    base = max(1, min(28, int((user or {}).get("pay_day", 1))))
+    if month_key:
+        overrides = (user or {}).get("pay_day_overrides") or {}
+        val = overrides.get(month_key)
+        if val is not None:
+            return max(1, min(28, int(val)))
+    return base
 
 
 def human_period(start: datetime, end_excl: datetime) -> str:

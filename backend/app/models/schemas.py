@@ -42,6 +42,10 @@ class UserSettingsPatch(BaseModel):
     currency: str | None = Field(default=None, min_length=3, max_length=8)
 
 
+class PayDayOverrideUpsert(BaseModel):
+    day: int = Field(ge=1, le=28)
+
+
 class SavingsCreate(BaseModel):
     amount: float = Field(gt=0)
     comment: str = ""

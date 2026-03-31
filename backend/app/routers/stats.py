@@ -28,7 +28,7 @@ async def balance(
     month: str | None = None,
     pay_day: int | None = Query(None, ge=1, le=28),
 ) -> dict:
-    pd = await resolve_pay_day(db, telegram_id, pay_day)
+    pd = await resolve_pay_day(db, telegram_id, pay_day, month)
     try:
         start, end_excl, month_key = month_window_from_key(month, pd)
     except ValueError as exc:
@@ -113,7 +113,7 @@ async def stats(
         )
         return _stats_body(period, rows, start, end)
     if period == "month":
-        pd = await resolve_pay_day(db, telegram_id, pay_day)
+        pd = await resolve_pay_day(db, telegram_id, pay_day, month)
         try:
             start, end_excl, _month_key = month_window_from_key(month, pd)
         except ValueError as exc:
@@ -181,7 +181,7 @@ async def stats_trend(
     pay_day: int | None = Query(None, ge=1, le=28),
 ) -> dict:
     if month:
-        pd = await resolve_pay_day(db, telegram_id, pay_day)
+        pd = await resolve_pay_day(db, telegram_id, pay_day, month)
         try:
             start, end, _ = month_window_from_key(month, pd)
         except ValueError as exc:
@@ -206,7 +206,7 @@ async def export_csv(
     pay_day: int | None = Query(None, ge=1, le=28),
 ) -> PlainTextResponse:
     if month:
-        pd = await resolve_pay_day(db, telegram_id, pay_day)
+        pd = await resolve_pay_day(db, telegram_id, pay_day, month)
         try:
             start, end_excl, _ = month_window_from_key(month, pd)
         except ValueError as exc:

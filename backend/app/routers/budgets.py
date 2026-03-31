@@ -27,7 +27,7 @@ async def list_budgets(
 ) -> dict:
     user = await queries.get_user(db, telegram_id)
     budgets = {k: float(v) for k, v in ((user or {}).get("budgets") or {}).items()}
-    pd = await resolve_pay_day(db, telegram_id, pay_day)
+    pd = await resolve_pay_day(db, telegram_id, pay_day, month)
     start, end_excl, month_key = month_window_from_key(month, pd)
     spent_rows = await (
         db["transactions"]

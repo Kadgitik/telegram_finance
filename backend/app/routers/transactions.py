@@ -70,7 +70,7 @@ async def list_transactions(
     if category:
         q["category"] = category
     if month:
-        pd = await resolve_pay_day(db, telegram_id, pay_day)
+        pd = await resolve_pay_day(db, telegram_id, pay_day, month)
         try:
             start, end_excl, _ = month_window_from_key(month, pd)
         except ValueError as exc:
