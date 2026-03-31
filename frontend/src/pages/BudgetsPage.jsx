@@ -19,6 +19,7 @@ import { formatMoney, formatUsdApprox } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
+const QUICK_EMOJIS = ["🍔", "🚕", "🏠", "🎮", "👕", "💊", "🎁", "📱", "💼", "💰", "📈", "🏷"];
 
 export default function BudgetsPage() {
   const { initData } = useTelegram();
@@ -29,6 +30,9 @@ export default function BudgetsPage() {
   const [amt, setAmt] = useState("");
   const [month, setStoredMonth] = useStoredMonth();
   const [categoryOptions, setCategoryOptions] = useState([]);
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("🏷");
   const usdRate = useFxRate();
 
   const load = async () => {
@@ -87,6 +91,22 @@ export default function BudgetsPage() {
     if (!initData || !confirm("Видалити бюджет?")) return;
     await api.delete("/budgets/" + encodeURIComponent(c), initData);
     load();
+  };
+
+  const saveNewCategory = async () => {
+    if (!initData || !newCatName.trim()) return;
+    const emoji = (newCatEmoji || "🏷").trim() || "🏷";
+    const name = newCatName.trim();
+    const created = await api.post("/categories", initData, { emoji, name, keywords: [] });
+    const label = created?.label || `${emoji} ${name}`;
+    setCategoryOptions((prev) => {
+      if (prev.includes(label)) return prev;
+      return [...prev, label];
+    });
+    setCat(label);
+    setNewCatName("");
+    setNewCatEmoji("🏷");
+    setShowAddCat(false);
   };
 
   return (
@@ -180,7 +200,16 @@ export default function BudgetsPage() {
           </div>
         ))}
       </div>
-      <p className="text-sm text-[var(--app-hint)] mb-2">Новий бюджет</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm text-[var(--app-hint)]">Новий бюджет</p>
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded-lg bg-[var(--app-secondary)] border border-white/10"
+          onClick={() => setShowAddCat(true)}
+        >
+          ➕ Додати категорію
+        </button>
+      </div>
       <div className="grid grid-cols-3 gap-2 mb-2">
         {categoryOptions.map((label) => (
           <button
@@ -207,6 +236,53 @@ export default function BudgetsPage() {
       >
         Зберегти
       </button>
+      {showAddCat ? (
+        <div className="fixed inset-0 z-[80] bg-black/60 p-4" onClick={() => setShowAddCat(false)}>
+          <div
+            className="max-w-sm mx-auto mt-16 rounded-2xl bg-[var(--app-secondary)] p-3 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-semibold">Нова категорія</p>
+            <div className="grid grid-cols-6 gap-1">
+              {QUICK_EMOJIS.map((emoji) => (
+                <button
+                  type="button"
+                  key={emoji}
+                  className={`rounded-lg py-1 text-lg ${
+                    newCatEmoji === emoji ? "bg-[var(--app-button)]/25 border border-[var(--app-button)]" : "bg-black/20"
+                  }`}
+                  onClick={() => setNewCatEmoji(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <input
+              className="w-full rounded-xl px-3 py-2 bg-black/20"
+              placeholder="Назва категорії"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="rounded-xl py-2 bg-black/20"
+                onClick={() => setShowAddCat(false)}
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                className="rounded-xl py-2 bg-[var(--app-button)] text-white disabled:opacity-60"
+                disabled={!newCatName.trim()}
+                onClick={saveNewCategory}
+              >
+                Додати
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

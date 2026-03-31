@@ -24,24 +24,27 @@ export default function HomePage() {
   const load = async () => {
     if (!initData) return;
     setErr("");
+    const bootstrapPath = `/bootstrap?month=${month}`;
     const settingsPath = "/users/settings";
     const balancePath = `/balance?month=${month}`;
     const txPath = `/transactions?limit=5&month=${month}`;
+    const cachedBootstrap = api.getCached(bootstrapPath, initData);
     const cachedSettings = api.getCached(settingsPath, initData);
     const cachedBalance = api.getCached(balancePath, initData);
     const cachedTx = api.getCached(txPath, initData);
+    if (cachedBootstrap) {
+      if (cachedBootstrap.settings) setPayDay(cachedBootstrap.settings?.pay_day || 1);
+      if (cachedBootstrap.balance) setBalance(cachedBootstrap.balance);
+      if (cachedBootstrap.transactions) setTx(cachedBootstrap.transactions.items || []);
+    }
     if (cachedSettings) setPayDay(cachedSettings?.pay_day || 1);
     if (cachedBalance) setBalance(cachedBalance);
     if (cachedTx) setTx(cachedTx.items || []);
     try {
-      const [s, b, t] = await Promise.all([
-        api.get(settingsPath, initData),
-        api.get(balancePath, initData),
-        api.get(txPath, initData),
-      ]);
-      setPayDay(s?.pay_day || 1);
-      setBalance(b);
-      setTx(t.items || []);
+      const boot = await api.get(bootstrapPath, initData);
+      if (boot?.settings) setPayDay(boot.settings?.pay_day || 1);
+      if (boot?.balance) setBalance(boot.balance);
+      if (boot?.transactions) setTx(boot.transactions.items || []);
     } catch (e) {
       setErr(String(e.message));
     }
