@@ -73,18 +73,22 @@ export default function HomePage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl p-5 mb-6 text-white shadow-lg"
+        className="rounded-2xl p-5 mb-6 text-white shadow-lg relative"
         style={{
           background: `linear-gradient(135deg, ${ACCENT.blue}, ${ACCENT.purple})`,
         }}
       >
+        {usdRate ? (
+          <p className="absolute top-3 right-3 text-[10px] opacity-80">
+            1$ = {usdRate.toFixed(2)} ₴
+          </p>
+        ) : null}
         <p className="text-sm opacity-90">Баланс</p>
         <p className="text-4xl font-bold my-2">
           {balance ? formatMoney(balance.balance) : "—"}
         </p>
         <p className="text-xs opacity-90">
           {balance ? formatUsdApprox(balance.balance, usdRate) : ""}
-          {usdRate ? ` · 1$ = ${usdRate.toFixed(2)} ₴` : ""}
         </p>
         <div className="flex gap-6 text-sm">
           <span style={{ color: ACCENT.green }}>
