@@ -2,6 +2,7 @@ import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import BottomNav from "./components/BottomNav";
 import AddPage from "./pages/AddPage";
 import BudgetsPage from "./pages/BudgetsPage";
+import CategoryStatsPage from "./pages/CategoryStatsPage";
 import GoalDetailsPage from "./pages/GoalDetailsPage";
 import HistoryPage from "./pages/HistoryPage";
 import HomePage from "./pages/HomePage";
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/add" element={<AddPage />} />
         <Route path="/stats" element={<StatsPage />} />
+        <Route path="/stats/category" element={<CategoryStatsPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/savings" element={<SavingsPage />} />
         <Route path="/goals/:id" element={<GoalDetailsPage />} />

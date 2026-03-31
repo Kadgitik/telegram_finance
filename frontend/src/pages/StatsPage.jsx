@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
@@ -114,6 +115,34 @@ export default function StatsPage() {
             />
           </div>
         </motion.div>
+      )}
+
+      {stats?.categories?.length > 0 && (
+        <div className="rounded-xl bg-[var(--app-secondary)] p-3">
+          <p className="text-sm text-[var(--app-hint)] mb-2">Категорії витрат</p>
+          <ul className="space-y-1">
+            {stats.categories.map((c) => (
+              <li key={c.name}>
+                <Link
+                  to={`/stats/category?category=${encodeURIComponent(c.name)}&month=${encodeURIComponent(month)}`}
+                  className="rounded-lg px-3 py-2 bg-black/20 grid grid-cols-[minmax(0,1fr)_112px_40px] gap-2 items-center"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate">{c.name}</p>
+                    <p className="text-xs text-[var(--app-hint)]">{c.count} транзакцій</p>
+                  </div>
+                  <div className="text-right tabular-nums">
+                    -{formatMoney(c.amount)}
+                    <p className="text-[10px] text-[var(--app-hint)]">
+                      {formatUsdApprox(c.amount, usdRate)}
+                    </p>
+                  </div>
+                  <p className="text-right text-sm text-[var(--app-hint)]">{c.percent}%</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {trend && trend.points?.length > 0 && (
