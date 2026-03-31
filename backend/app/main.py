@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -30,23 +31,30 @@ async def lifespan(app: FastAPI):
     dp = build_dispatcher()
     app.state.bot = bot
     app.state.dp = dp
-    config.validate_webhook_base_url(config.WEBHOOK_BASE_URL)
-    wh_url = f"{config.WEBHOOK_BASE_URL}{config.WEBHOOK_PATH}"
-    await bot.set_webhook(url=wh_url, secret_token=config.WEBHOOK_SECRET or None)
-    info = await bot.get_webhook_info()
-    _LOGGER.info(
-        "Webhook set: %s | Telegram pending=%s last_error=%s",
-        wh_url,
-        getattr(info, "pending_update_count", None),
-        getattr(info, "last_error_message", None) or "none",
-    )
-    if info.url and info.url != wh_url:
-        _LOGGER.warning(
-            "Невідповідність: Telegram webhook URL у API = %s (очікувалось %s). "
-            "Перевір BOT_TOKEN і зроби redeploy після оновлення WEBHOOK_URL.",
-            info.url,
-            wh_url,
+    try:
+        config.validate_webhook_base_url(config.WEBHOOK_BASE_URL)
+        wh_url = f"{config.WEBHOOK_BASE_URL}{config.WEBHOOK_PATH}"
+        await asyncio.wait_for(
+            bot.set_webhook(url=wh_url, secret_token=config.WEBHOOK_SECRET or None),
+            timeout=15,
         )
+        info = await asyncio.wait_for(bot.get_webhook_info(), timeout=15)
+        _LOGGER.info(
+            "Webhook set: %s | Telegram pending=%s last_error=%s",
+            wh_url,
+            getattr(info, "pending_update_count", None),
+            getattr(info, "last_error_message", None) or "none",
+        )
+        if info.url and info.url != wh_url:
+            _LOGGER.warning(
+                "Невідповідність: Telegram webhook URL у API = %s (очікувалось %s). "
+                "Перевір BOT_TOKEN і зроби redeploy після оновлення WEBHOOK_URL.",
+                info.url,
+                wh_url,
+            )
+    except Exception as exc:
+        # Do not block app startup if Telegram API is temporarily unavailable.
+        _LOGGER.exception("Webhook setup failed, app will still start: %s", exc)
     yield
     try:
         await bot.delete_webhook(drop_pending_updates=True)
