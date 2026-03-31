@@ -31,3 +31,7 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     tx = db["transactions"]
     await tx.create_index([("telegram_id", 1), ("created_at", -1)])
     await tx.create_index([("telegram_id", 1), ("type", 1), ("created_at", -1)])
+    savings = db["savings"]
+    await savings.create_index([("telegram_id", 1), ("created_at", -1)])
+    goals = db["goals"]
+    await goals.create_index([("telegram_id", 1), ("created_at", -1)])

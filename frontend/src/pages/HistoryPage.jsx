@@ -1,23 +1,29 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useTelegram } from "../hooks/useTelegram";
 import { formatDayLabel, formatMoney, formatTime } from "../utils/formatters";
+import { useStoredMonth } from "../utils/month";
 
 export default function HistoryPage() {
+  const [params] = useSearchParams();
+  const categoryFromQuery = params.get("category") || "";
   const { initData } = useTelegram();
   const [filter, setFilter] = useState("all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(categoryFromQuery);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [month] = useStoredMonth();
 
   const load = async () => {
     if (!initData) return;
     setLoading(true);
     try {
-      let q = "/transactions?limit=50";
+      let q = `/transactions?limit=50&month=${month}`;
       if (filter === "expense") q += "&type=expense";
       if (filter === "income") q += "&type=income";
       if (search.trim()) q += "&search=" + encodeURIComponent(search.trim());
+      if (categoryFromQuery) q += "&category=" + encodeURIComponent(categoryFromQuery);
       const r = await api.get(q, initData);
       setItems(r.items || []);
     } finally {
@@ -27,7 +33,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     load();
-  }, [initData, filter]);
+  }, [initData, filter, month, categoryFromQuery]);
 
   const grouped = () => {
     const m = new Map();

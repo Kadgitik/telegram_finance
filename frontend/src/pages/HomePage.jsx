@@ -2,8 +2,10 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import MonthSwitcher from "../components/MonthSwitcher";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
+import { useStoredMonth } from "../utils/month";
 import { formatMoney, formatTime } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
@@ -13,15 +15,19 @@ export default function HomePage() {
   const [balance, setBalance] = useState(null);
   const [tx, setTx] = useState([]);
   const [err, setErr] = useState("");
+  const [month, setStoredMonth] = useStoredMonth();
+  const [payDay, setPayDay] = useState(1);
 
   const load = async () => {
     if (!initData) return;
     setErr("");
     try {
-      const [b, t] = await Promise.all([
-        api.get("/balance", initData),
-        api.get("/transactions?limit=5", initData),
+      const [s, b, t] = await Promise.all([
+        api.get("/users/settings", initData),
+        api.get(`/balance?month=${month}`, initData),
+        api.get(`/transactions?limit=5&month=${month}`, initData),
       ]);
+      setPayDay(s?.pay_day || 1);
       setBalance(b);
       setTx(t.items || []);
     } catch (e) {
@@ -31,7 +37,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (ready && initData) load();
-  }, [ready, initData]);
+  }, [ready, initData, month]);
 
   const name = user?.first_name || "друже";
 
@@ -55,6 +61,12 @@ export default function HomePage() {
       )}
 
       {err && <p className="text-red-400 text-sm mb-2">{err}</p>}
+
+      <MonthSwitcher
+        month={month}
+        onChange={setStoredMonth}
+        subtitle={balance?.period_label || `pay day: ${payDay}`}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -107,20 +119,22 @@ export default function HomePage() {
         {tx.map((x) => (
           <li
             key={x.id}
-            className="flex justify-between items-center rounded-xl px-3 py-2 bg-[var(--app-secondary)]"
+            className="grid grid-cols-[minmax(0,1fr)_110px_52px] items-center rounded-xl px-3 py-2 bg-[var(--app-secondary)] gap-2"
           >
-            <span className="truncate flex-1 mr-2">
+            <span className="truncate min-w-0">
               {x.category || "—"} · {x.comment || " "}
             </span>
             <span
               className={
-                x.type === "income" ? "text-green-400" : "text-[var(--app-text)]"
+                `text-right tabular-nums ${
+                  x.type === "income" ? "text-green-400" : "text-[var(--app-text)]"
+                }`
               }
             >
               {x.type === "income" ? "+" : "-"}
               {formatMoney(x.amount)}
             </span>
-            <span className="text-xs text-[var(--app-hint)] ml-2 w-12 text-right">
+            <span className="text-xs text-[var(--app-hint)] text-right tabular-nums w-[52px]">
               {formatTime(x.created_at)}
             </span>
           </li>

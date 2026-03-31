@@ -14,7 +14,9 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import { api } from "../api/client";
+import MonthSwitcher from "../components/MonthSwitcher";
 import { useTelegram } from "../hooks/useTelegram";
+import { useStoredMonth } from "../utils/month";
 import { formatMoney } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
@@ -42,18 +44,19 @@ export default function StatsPage() {
   const [period, setPeriod] = useState("month");
   const [stats, setStats] = useState(null);
   const [trend, setTrend] = useState(null);
+  const [month, setStoredMonth] = useStoredMonth();
 
   useEffect(() => {
     if (!initData) return;
     (async () => {
       const [s, t] = await Promise.all([
-        api.get(`/stats?period=${period}`, initData),
-        api.get("/stats/trend?days=30", initData),
+        api.get(`/stats?period=${period}&month=${month}`, initData),
+        api.get(`/stats/trend?days=30&month=${month}`, initData),
       ]);
       setStats(s);
       setTrend(t);
     })().catch(() => {});
-  }, [initData, period]);
+  }, [initData, period, month]);
 
   const labels = stats?.categories?.map((c) => c.name) || [];
   const dataVals = stats?.categories?.map((c) => c.amount) || [];
@@ -76,6 +79,7 @@ export default function StatsPage() {
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto space-y-6">
       <h1 className="text-xl font-bold">Статистика</h1>
+      <MonthSwitcher month={month} onChange={setStoredMonth} subtitle={stats?.period_label || ""} />
       <div className="flex gap-2 overflow-x-auto pb-2">
         {PERIODS.map(([k, lab]) => (
           <button
@@ -159,6 +163,15 @@ export default function StatsPage() {
               },
             }}
           />
+        </div>
+      )}
+      {stats?.budget_summary && (
+        <div className="rounded-xl bg-[var(--app-secondary)] p-3">
+          <p className="text-sm text-[var(--app-hint)] mb-1">Бюджети</p>
+          <p className="font-semibold">
+            {formatMoney(stats.budget_summary.total_spent)} з {formatMoney(stats.budget_summary.total_limit)}
+          </p>
+          <p className="text-xs text-[var(--app-hint)]">{stats.budget_summary.total_percent}% використано</p>
         </div>
       )}
     </div>

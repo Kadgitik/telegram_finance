@@ -6,19 +6,38 @@ export function useTelegram() {
   const [initData, setInitData] = useState("");
 
   useEffect(() => {
+    const setViewportHeightVar = () => {
+      const h = WebApp?.viewportStableHeight || WebApp?.viewportHeight;
+      if (h) {
+        document.documentElement.style.setProperty("--tg-viewport-height", `${h}px`);
+      }
+    };
+
     try {
       WebApp.ready();
       WebApp.expand();
+      WebApp.disableVerticalSwipes?.();
+      WebApp.requestFullscreen?.();
+      setViewportHeightVar();
+      WebApp.onEvent?.("viewportChanged", setViewportHeightVar);
       setInitData(WebApp.initData || "");
     } catch {
       setInitData("");
     }
     setReady(true);
+
+    return () => {
+      try {
+        WebApp.offEvent?.("viewportChanged", setViewportHeightVar);
+      } catch {
+        // noop
+      }
+    };
   }, []);
 
   return {
     ready,
- initData,
+    initData,
     user: WebApp.initDataUnsafe?.user,
     WebApp,
   };

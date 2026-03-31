@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.deps import telegram_user_id
 from backend.app.models.schemas import TransactionCreate, TransactionUpdate
+from backend.app.services.periods import month_window_from_key, resolve_pay_day
 from bot.db import queries
 from bot.db.mongo import get_db
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -55,33 +56,41 @@ async def list_transactions(
     db: AsyncIOMotorDatabase = Depends(_db),
     tx_type: str | None = Query(None, alias="type"),
     category: str | None = None,
-    month: int | None = None,
+    month: str | None = None,
     year: int | None = None,
+    pay_day: int | None = Query(None, ge=1, le=28),
     search: str | None = None,
     offset: int = 0,
     limit: int = 20,
 ) -> dict[str, Any]:
     type_ = tx_type if tx_type in ("expense", "income") else None
-    items = await queries.list_transactions(
-        db,
-        telegram_id,
-        type_=type_,
-        category=category,
-        year=year,
-        month=month,
-        search=search,
-        skip=offset,
-        limit=limit,
+    q: dict[str, Any] = {"telegram_id": telegram_id}
+    if type_:
+        q["type"] = type_
+    if category:
+        q["category"] = category
+    if month:
+        pd = await resolve_pay_day(db, telegram_id, pay_day)
+        try:
+            start, end_excl, _ = month_window_from_key(month, pd)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        q["created_at"] = {"$gte": start, "$lt": end_excl}
+    elif year is not None and month is None:
+        # legacy fallback: year only without month key is ignored
+        pass
+    if search and search.strip():
+        rx = {"$regex": search.strip(), "$options": "i"}
+        q["$or"] = [{"comment": rx}, {"category": rx}]
+    cur = (
+        db["transactions"]
+        .find(q)
+        .sort("created_at", -1)
+        .skip(max(0, offset))
+        .limit(min(100, max(1, limit)))
     )
-    total = await queries.count_transactions_filtered(
-        db,
-        telegram_id,
-        type_=type_,
-        category=category,
-        year=year,
-        month=month,
-        search=search,
-    )
+    items = await cur.to_list(length=None)
+    total = await db["transactions"].count_documents(q)
     return {"items": [_tx_out(x) for x in items], "total": total}
 
 

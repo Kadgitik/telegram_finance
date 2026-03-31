@@ -4,8 +4,9 @@ import { motion } from "framer-motion";
 const tabs = [
   { to: "/", label: "Головна", icon: "🏠" },
   { to: "/stats", label: "Статистика", icon: "📊" },
+  { to: "/savings", label: "Скарбничка", icon: "💎" },
   { to: "/history", label: "Історія", icon: "📋" },
-  { to: "/more", label: "Ще", icon: "⚙️" },
+  { to: "/settings", label: "Ще", icon: "⚙️" },
 ];
 
 export default function BottomNav() {
