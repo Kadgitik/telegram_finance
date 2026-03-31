@@ -6,6 +6,8 @@ import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/constants";
 
+const QUICK_EMOJIS = ["🍔", "🚕", "🏠", "🎮", "👕", "💊", "🎁", "📱", "💼", "💰", "💵", "📈", "🏷"];
+
 const KEYS = [
   ["1", "2", "3"],
   ["4", "5", "6"],
@@ -22,6 +24,9 @@ export default function AddPage() {
   const [comment, setComment] = useState("");
   const [customCats, setCustomCats] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("🏷");
   const savingRef = useRef(false);
   const { initData } = useTelegram();
   const h = useHaptic();
@@ -29,9 +34,10 @@ export default function AddPage() {
 
   const categories = useMemo(
     () =>
-      kind === "income"
-        ? INCOME_CATEGORIES
-        : [...EXPENSE_CATEGORIES, ...customCats.map((c) => ({ ...c, custom: true }))],
+      [
+        ...(kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES),
+        ...customCats.map((c) => ({ ...c, custom: true })),
+      ],
     [kind, customCats]
   );
 
@@ -69,6 +75,26 @@ export default function AddPage() {
   };
 
   const amount = parseFloat(amountStr.replace(",", ".")) || 0;
+
+  const saveNewCategory = async () => {
+    if (!initData || !newCatName.trim()) return;
+    const name = newCatName.trim();
+    const emoji = (newCatEmoji || "🏷").trim() || "🏷";
+    const created = await api.post("/categories", initData, { emoji, name, keywords: [] });
+    const label = created?.label || `${emoji} ${name}`;
+    setCustomCats((prev) => {
+      const next = [...prev];
+      if (!next.some((x) => x.label === label)) {
+        next.push({ emoji, name, label });
+      }
+      return next;
+    });
+    setCategory(label);
+    setShowAddCat(false);
+    setNewCatName("");
+    setNewCatEmoji("🏷");
+    h.success();
+  };
 
   return (
     <div className="px-4 pt-4 pb-[calc(7rem+env(safe-area-inset-bottom))] max-w-lg mx-auto min-h-screen overflow-y-auto">
@@ -112,7 +138,16 @@ export default function AddPage() {
         ))}
       </div>
 
-      <p className="text-sm text-[var(--app-hint)] mb-2">Категорія</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm text-[var(--app-hint)]">Категорія</p>
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded-lg bg-[var(--app-secondary)] border border-white/10"
+          onClick={() => setShowAddCat(true)}
+        >
+          ➕ Додати категорію
+        </button>
+      </div>
       <div className="grid grid-cols-3 gap-2 mb-4">
         {categories.map((c) => (
           <button
@@ -166,6 +201,53 @@ export default function AddPage() {
       >
         {saving ? "Збереження..." : "Зберегти"}
       </button>
+      {showAddCat ? (
+        <div className="fixed inset-0 z-[80] bg-black/60 p-4" onClick={() => setShowAddCat(false)}>
+          <div
+            className="max-w-sm mx-auto mt-16 rounded-2xl bg-[var(--app-secondary)] p-3 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-semibold">Нова категорія</p>
+            <div className="grid grid-cols-7 gap-1">
+              {QUICK_EMOJIS.map((emoji) => (
+                <button
+                  type="button"
+                  key={emoji}
+                  className={`rounded-lg py-1 text-lg ${
+                    newCatEmoji === emoji ? "bg-[var(--app-button)]/25 border border-[var(--app-button)]" : "bg-black/20"
+                  }`}
+                  onClick={() => setNewCatEmoji(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <input
+              className="w-full rounded-xl px-3 py-2 bg-black/20"
+              placeholder="Назва категорії"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="rounded-xl py-2 bg-black/20"
+                onClick={() => setShowAddCat(false)}
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                className="rounded-xl py-2 bg-[var(--app-button)] text-white disabled:opacity-60"
+                disabled={!newCatName.trim()}
+                onClick={saveNewCategory}
+              >
+                Додати
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
