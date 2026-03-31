@@ -51,10 +51,16 @@ export default function StatsPage() {
 
   useEffect(() => {
     if (!initData) return;
+    const statsPath = `/stats?period=${period}&month=${month}`;
+    const trendPath = `/stats/trend?days=30&month=${month}`;
+    const cachedStats = api.getCached(statsPath, initData);
+    const cachedTrend = api.getCached(trendPath, initData);
+    if (cachedStats) setStats(cachedStats);
+    if (cachedTrend) setTrend(cachedTrend);
     (async () => {
       const [s, t] = await Promise.all([
-        api.get(`/stats?period=${period}&month=${month}`, initData),
-        api.get(`/stats/trend?days=30&month=${month}`, initData),
+        api.get(statsPath, initData),
+        api.get(trendPath, initData),
       ]);
       setStats(s);
       setTrend(t);

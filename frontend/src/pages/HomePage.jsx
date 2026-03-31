@@ -12,7 +12,7 @@ import { formatMoney, formatTime, formatUsdApprox } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
 export default function HomePage() {
-  const { initData, user, ready } = useTelegram();
+  const { initData, ready } = useTelegram();
   const h = useHaptic();
   const [balance, setBalance] = useState(null);
   const [tx, setTx] = useState([]);
@@ -24,11 +24,20 @@ export default function HomePage() {
   const load = async () => {
     if (!initData) return;
     setErr("");
+    const settingsPath = "/users/settings";
+    const balancePath = `/balance?month=${month}`;
+    const txPath = `/transactions?limit=5&month=${month}`;
+    const cachedSettings = api.getCached(settingsPath, initData);
+    const cachedBalance = api.getCached(balancePath, initData);
+    const cachedTx = api.getCached(txPath, initData);
+    if (cachedSettings) setPayDay(cachedSettings?.pay_day || 1);
+    if (cachedBalance) setBalance(cachedBalance);
+    if (cachedTx) setTx(cachedTx.items || []);
     try {
       const [s, b, t] = await Promise.all([
-        api.get("/users/settings", initData),
-        api.get(`/balance?month=${month}`, initData),
-        api.get(`/transactions?limit=5&month=${month}`, initData),
+        api.get(settingsPath, initData),
+        api.get(balancePath, initData),
+        api.get(txPath, initData),
       ]);
       setPayDay(s?.pay_day || 1);
       setBalance(b);
@@ -42,20 +51,9 @@ export default function HomePage() {
     if (ready && initData) load();
   }, [ready, initData, month]);
 
-  const name = user?.first_name || "друже";
-
   return (
     <div className="px-4 pt-4 max-w-lg mx-auto">
-      <motion.header
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-4"
-      >
-        <p className="text-sm text-[var(--app-hint)]">Привіт,</p>
-        <h1 className="text-xl font-bold">
-          {name} 👋
-        </h1>
-      </motion.header>
+      <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-2" />
 
       {!initData && (
         <p className="text-sm text-orange-400 mb-4">

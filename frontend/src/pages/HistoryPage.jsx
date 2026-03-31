@@ -26,6 +26,8 @@ export default function HistoryPage() {
       if (filter === "income") q += "&type=income";
       if (search.trim()) q += "&search=" + encodeURIComponent(search.trim());
       if (categoryFromQuery) q += "&category=" + encodeURIComponent(categoryFromQuery);
+      const cached = api.getCached(q, initData);
+      if (cached?.items) setItems(cached.items || []);
       const r = await api.get(q, initData);
       setItems(r.items || []);
     } finally {

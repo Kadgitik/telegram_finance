@@ -25,6 +25,14 @@ function clearGetCache() {
   getCache.clear();
 }
 
+function getCached(path, initData) {
+  const key = keyFor(path, initData);
+  const cached = getCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.ts > GET_TTL_MS) return null;
+  return cached.data;
+}
+
 async function request(path, initData, options = {}) {
   const headers = {
     ...options.headers,
@@ -90,4 +98,5 @@ export const api = {
       return res;
     }),
   clearCache: clearGetCache,
+  getCached,
 };

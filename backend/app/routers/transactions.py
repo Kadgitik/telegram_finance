@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from bson import ObjectId
@@ -37,6 +38,22 @@ async def create_transaction(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, Any]:
+    # Idempotency guard: if user double-taps save, avoid inserting duplicate tx.
+    now = datetime.now(timezone.utc)
+    recent_duplicate = await db["transactions"].find_one(
+        {
+            "telegram_id": telegram_id,
+            "type": body.type,
+            "amount": float(body.amount),
+            "category": body.category,
+            "comment": body.comment.strip(),
+            "created_at": {"$gte": now - timedelta(seconds=3)},
+        },
+        sort=[("created_at", -1)],
+    )
+    if recent_duplicate:
+        return _tx_out(recent_duplicate)
+
     oid = await queries.add_transaction(
         db,
         telegram_id,

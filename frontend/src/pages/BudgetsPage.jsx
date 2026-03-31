@@ -33,7 +33,18 @@ export default function BudgetsPage() {
 
   const load = async () => {
     if (!initData) return;
-    const r = await api.get(`/budgets?month=${month}`, initData);
+    const path = `/budgets?month=${month}`;
+    const cached = api.getCached(path, initData);
+    if (cached) {
+      setRows(cached.budgets || []);
+      setPeriodLabel(cached.period_label || "");
+      setSummary({
+        total_limit: cached.total_limit || 0,
+        total_spent: cached.total_spent || 0,
+        total_percent: cached.total_percent || 0,
+      });
+    }
+    const r = await api.get(path, initData);
     setRows(r.budgets || []);
     setPeriodLabel(r.period_label || "");
     setSummary({

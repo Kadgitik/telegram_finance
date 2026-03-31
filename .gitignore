@@ -14,3 +14,4 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 static/
+prompt-fixes.md
