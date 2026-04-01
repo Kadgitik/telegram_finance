@@ -7,7 +7,7 @@ import MonthSwitcher from "../components/MonthSwitcher";
 import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
-import { useStoredMonth } from "../utils/month";
+import { useStoredMonth } from "../context/MonthContext";
 import { formatMoney, formatTime, formatUsdApprox } from "../utils/formatters";
 import { ACCENT } from "../utils/constants";
 
@@ -21,7 +21,6 @@ export default function HomePage() {
   const [month, setStoredMonth] = useStoredMonth();
   const [payDay, setPayDay] = useState(1);
   const usdRate = useFxRate();
-
   const load = async () => {
     if (!initData) return;
     setErr("");
@@ -43,7 +42,8 @@ export default function HomePage() {
     if (cachedTx) setTx(cachedTx.items || []);
     try {
       const boot = await api.get(bootstrapPath, initData);
-      if (boot?.settings) setPayDay(boot.settings?.pay_day || 1);
+      const pd = boot?.settings?.pay_day ?? 1;
+      if (boot?.settings) setPayDay(pd);
       if (boot?.balance) setBalance(boot.balance);
       if (boot?.transactions) setTx(boot.transactions.items || []);
     } catch (e) {

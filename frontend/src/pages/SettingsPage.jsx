@@ -2,15 +2,16 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
 import { useTelegram } from "../hooks/useTelegram";
-import { currentMonthKey, formatMonthLabel, useStoredMonth } from "../utils/month";
+import { useStoredMonth } from "../context/MonthContext";
+import { currentMonthKey, formatMonthLabel } from "../utils/month";
 
 export default function SettingsPage() {
   const { initData } = useTelegram();
   const [payDay, setPayDay] = useState(1);
   const [overrides, setOverrides] = useState({});
   const [overrideDay, setOverrideDay] = useState(1);
-  const [overrideMonth, setOverrideMonth] = useState(currentMonthKey());
   const [globalMonth] = useStoredMonth();
+  const [overrideMonth, setOverrideMonth] = useState(() => globalMonth || currentMonthKey());
   const [saving, setSaving] = useState(false);
 
   const load = async () => {

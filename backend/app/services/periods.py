@@ -20,6 +20,17 @@ def parse_month_key(month_key: str | None) -> tuple[int, int]:
         raise ValueError("Очікується month у форматі YYYY-MM") from exc
 
 
+def financial_month_key_for_date(dt: datetime, pay_day: int) -> str:
+    """YYYY-MM ключа фінансового місяця для дати (період [pay_day; наступний pay_day))."""
+    pay = max(1, min(28, int(pay_day or 1)))
+    y, m, d = dt.year, dt.month, dt.day
+    if d >= pay:
+        return f"{y}-{m:02d}"
+    if m == 1:
+        return f"{y - 1}-12"
+    return f"{y}-{m - 1:02d}"
+
+
 def month_window(year: int, month: int, pay_day: int) -> tuple[datetime, datetime]:
     pay = max(1, min(28, int(pay_day or 1)))
     start = datetime(year, month, pay, tzinfo=timezone.utc)
@@ -36,6 +47,17 @@ def month_window_from_key(month_key: str | None, pay_day: int) -> tuple[datetime
     return start, end_excl, f"{year}-{month:02d}"
 
 
+def resolve_pay_day_from_user(user: dict | None, month_key: str | None) -> int:
+    """День зарплати для ключа місяця без повторного find_one."""
+    base = max(1, min(28, int((user or {}).get("pay_day", 1))))
+    if month_key:
+        overrides = (user or {}).get("pay_day_overrides") or {}
+        val = overrides.get(month_key)
+        if val is not None:
+            return max(1, min(28, int(val)))
+    return base
+
+
 async def resolve_pay_day(
     db: AsyncIOMotorDatabase,
     telegram_id: int,
@@ -48,13 +70,7 @@ async def resolve_pay_day(
         {"telegram_id": telegram_id},
         {"pay_day": 1, "pay_day_overrides": 1},
     )
-    base = max(1, min(28, int((user or {}).get("pay_day", 1))))
-    if month_key:
-        overrides = (user or {}).get("pay_day_overrides") or {}
-        val = overrides.get(month_key)
-        if val is not None:
-            return max(1, min(28, int(val)))
-    return base
+    return resolve_pay_day_from_user(user, month_key)
 
 
 def human_period(start: datetime, end_excl: datetime) -> str:

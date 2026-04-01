@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
 import { formatDayLabel, formatMoney, formatTime, formatUsdApprox } from "../utils/formatters";
-import { useStoredMonth } from "../utils/month";
+import { useStoredMonth } from "../context/MonthContext";
 
 export default function HistoryPage() {
   const [params] = useSearchParams();

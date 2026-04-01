@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import csv
 import io
 from datetime import datetime, timedelta, timezone
@@ -11,7 +12,14 @@ from fastapi.responses import PlainTextResponse
 
 from backend.app.deps import telegram_user_id
 from backend.app.routers.goals import _goal_out
-from backend.app.services.periods import human_period, month_window_from_key, resolve_pay_day
+from backend.app.services.periods import (
+    financial_month_key_for_date,
+    human_period,
+    month_window_from_key,
+    parse_month_key,
+    resolve_pay_day,
+    resolve_pay_day_from_user,
+)
 from bot.db import queries
 from bot.db.mongo import get_db
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -119,14 +127,33 @@ async def bootstrap(
     db: AsyncIOMotorDatabase = Depends(_db),
     month: str | None = None,
 ) -> dict[str, Any]:
-    pd = await resolve_pay_day(db, telegram_id, None, month)
+    user = await db["users"].find_one(
+        {"telegram_id": telegram_id},
+        {
+            "pay_day": 1,
+            "pay_day_overrides": 1,
+            "default_currency": 1,
+            "budgets": 1,
+        },
+    ) or {}
+
+    month_param: str
+    if not month or str(month).lower() == "auto":
+        base_pd = max(1, min(28, int(user.get("pay_day", 1))))
+        month_param = financial_month_key_for_date(datetime.now(timezone.utc), base_pd)
+    else:
+        month_param = str(month)
+        try:
+            parse_month_key(month_param)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    pd = resolve_pay_day_from_user(user, month_param)
     try:
-        start, end_excl, month_key = month_window_from_key(month, pd)
+        start, end_excl, month_key = month_window_from_key(month_param, pd)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 
-    # Settings
-    user = await db["users"].find_one({"telegram_id": telegram_id}) or {}
     settings = {
         "pay_day": int(user.get("pay_day", 1)),
         "currency": user.get("default_currency", "UAH"),
@@ -134,23 +161,115 @@ async def bootstrap(
             k: int(v) for k, v in (user.get("pay_day_overrides") or {}).items()
         },
     }
+    budgets_raw = {k: float(v) for k, v in (user.get("budgets") or {}).items()}
 
-    # Balance in selected financial period
-    bal_rows = await (
-        db["transactions"]
-        .aggregate(
-            [
-                {
-                    "$match": {
-                        "telegram_id": telegram_id,
-                        "created_at": {"$gte": start, "$lt": end_excl},
-                    }
-                },
-                {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
-            ]
+    tx_match = {"telegram_id": telegram_id, "created_at": {"$gte": start, "$lt": end_excl}}
+
+    async def _balance_agg():
+        return await (
+            db["transactions"]
+            .aggregate(
+                [
+                    {"$match": tx_match},
+                    {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
+                ]
+            )
+            .to_list(length=None)
         )
-        .to_list(length=None)
+
+    async def _tx_recent():
+        return await (
+            db["transactions"]
+            .find(tx_match)
+            .sort("created_at", -1)
+            .limit(5)
+            .to_list(length=None)
+        )
+
+    async def _spent_by_category():
+        return await (
+            db["transactions"]
+            .aggregate(
+                [
+                    {
+                        "$match": {
+                            "telegram_id": telegram_id,
+                            "type": "expense",
+                            "created_at": {"$gte": start, "$lt": end_excl},
+                        }
+                    },
+                    {
+                        "$group": {
+                            "_id": "$category",
+                            "spent": {"$sum": "$amount"},
+                            "transactions_count": {"$sum": 1},
+                        }
+                    },
+                ]
+            )
+            .to_list(length=None)
+        )
+
+    async def _savings_history():
+        return await (
+            db["savings"]
+            .find({"telegram_id": telegram_id})
+            .sort("created_at", -1)
+            .to_list(length=120)
+        )
+
+    async def _savings_by_month():
+        return await (
+            db["savings"]
+            .aggregate(
+                [
+                    {"$match": {"telegram_id": telegram_id}},
+                    {
+                        "$group": {
+                            "_id": {
+                                "$dateToString": {
+                                    "format": "%Y-%m",
+                                    "date": "$created_at",
+                                }
+                            },
+                            "total": {"$sum": "$amount"},
+                        }
+                    },
+                    {"$sort": {"_id": -1}},
+                    {"$limit": 12},
+                ]
+            )
+            .to_list(length=None)
+        )
+
+    async def _goals_list():
+        return await (
+            db["goals"]
+            .find({"telegram_id": telegram_id})
+            .sort("created_at", -1)
+            .to_list(length=200)
+        )
+
+    (
+        bal_rows,
+        tx_rows,
+        stats_rows,
+        trend_rows,
+        spent_rows,
+        savings_rows,
+        savings_month_rows,
+        goals_rows,
+    ) = await asyncio.gather(
+        _balance_agg(),
+        _tx_recent(),
+        queries.get_expense_stats(db, telegram_id, start, end_excl, end_inclusive=False),
+        queries.get_daily_expense_series(db, telegram_id, start, end_excl, end_inclusive=False),
+        _spent_by_category(),
+        _savings_history(),
+        _savings_by_month(),
+        _goals_list(),
     )
+
     income = 0.0
     expense = 0.0
     for row in bal_rows:
@@ -170,61 +289,22 @@ async def bootstrap(
         "change_percent": 0.0,
     }
 
-    # Home recent transactions
-    tx_rows = await (
-        db["transactions"]
-        .find(
-            {
-                "telegram_id": telegram_id,
-                "created_at": {"$gte": start, "$lt": end_excl},
-            }
-        )
-        .sort("created_at", -1)
-        .limit(5)
-        .to_list(length=None)
-    )
     transactions = {"items": [_tx_out(x) for x in tx_rows], "total": len(tx_rows)}
 
-    # Stats (month categories)
-    stats_rows = await queries.get_expense_stats(
-        db, telegram_id, start, end_excl, end_inclusive=False
-    )
     stats_data = _stats_body("month", stats_rows, start, end_excl)
     stats_data["month"] = month_key
     stats_data["pay_day"] = pd
     stats_data["period_label"] = human_period(start, end_excl)
-    stats_data["budget_summary"] = await _budget_summary(db, telegram_id, start, end_excl)
+    spent_simple = {r["_id"]: float(r["spent"]) for r in spent_rows}
+    bs_total_limit = float(sum(budgets_raw.values())) if budgets_raw else 0.0
+    bs_total_spent = float(sum(spent_simple.get(k, 0.0) for k in budgets_raw.keys()))
+    stats_data["budget_summary"] = {
+        "total_limit": bs_total_limit,
+        "total_spent": bs_total_spent,
+        "total_percent": round((bs_total_spent / bs_total_limit) * 100, 1) if bs_total_limit else 0.0,
+    }
 
-    # Trend points for date bars
-    trend_rows = await queries.get_daily_expense_series(
-        db, telegram_id, start, end_excl, end_inclusive=False
-    )
     trend_data = {"points": [{"date": r["_id"], "amount": float(r["total"])} for r in trend_rows]}
-
-    # Budgets (summary only, page will request full payload if needed)
-    budgets_raw = {k: float(v) for k, v in ((user or {}).get("budgets") or {}).items()}
-    spent_rows = await (
-        db["transactions"]
-        .aggregate(
-            [
-                {
-                    "$match": {
-                        "telegram_id": telegram_id,
-                        "type": "expense",
-                        "created_at": {"$gte": start, "$lt": end_excl},
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": "$category",
-                        "spent": {"$sum": "$amount"},
-                        "transactions_count": {"$sum": 1},
-                    }
-                },
-            ]
-        )
-        .to_list(length=None)
-    )
     spent_by_cat = {
         r["_id"]: {"spent": float(r["spent"]), "count": int(r["transactions_count"])}
         for r in spent_rows
@@ -256,36 +336,7 @@ async def bootstrap(
         "total_percent": round((total_spent / total_limit) * 100, 1) if total_limit else 0.0,
     }
 
-    # Savings / goals
-    savings_rows = await (
-        db["savings"]
-        .find({"telegram_id": telegram_id})
-        .sort("created_at", -1)
-        .to_list(length=120)
-    )
     savings_total = float(sum(float(x["amount"]) for x in savings_rows))
-    savings_month_rows = await (
-        db["savings"]
-        .aggregate(
-            [
-                {"$match": {"telegram_id": telegram_id}},
-                {
-                    "$group": {
-                        "_id": {
-                            "$dateToString": {
-                                "format": "%Y-%m",
-                                "date": "$created_at",
-                            }
-                        },
-                        "total": {"$sum": "$amount"},
-                    }
-                },
-                {"$sort": {"_id": -1}},
-                {"$limit": 12},
-            ]
-        )
-        .to_list(length=None)
-    )
     savings_data = {
         "total": savings_total,
         "monthly_breakdown": [
@@ -301,12 +352,6 @@ async def bootstrap(
             for x in savings_rows
         ],
     }
-    goals_rows = (
-        await db["goals"]
-        .find({"telegram_id": telegram_id})
-        .sort("created_at", -1)
-        .to_list(length=200)
-    )
     goals_data = {"items": [_goal_out(x) for x in goals_rows]}
 
     return {

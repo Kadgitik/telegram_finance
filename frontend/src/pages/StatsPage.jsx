@@ -12,7 +12,7 @@ import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
 import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
-import { useStoredMonth } from "../utils/month";
+import { useStoredMonth } from "../context/MonthContext";
 import { formatMoney, formatUsdApprox } from "../utils/formatters";
 
 ChartJS.register(
