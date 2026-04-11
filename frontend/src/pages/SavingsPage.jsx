@@ -1,4 +1,5 @@
-import { PiggyBank, Plus, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { PiggyBank, Plus, Target, Trash2, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useHaptic } from "../hooks/useHaptic";
@@ -9,33 +10,56 @@ export default function SavingsPage() {
   const { initData } = useTelegram();
   const h = useHaptic();
   const [total, setTotal] = useState(0);
-  const [history, setHistory] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [comment, setComment] = useState("");
+  const [goals, setGoals] = useState([]);
+  
+  const [showAddGoal, setShowAddGoal] = useState(false);
+  const [goalName, setGoalName] = useState("");
+  const [goalTarget, setGoalTarget] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [activeGoal, setActiveGoal] = useState(null);
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositing, setDepositing] = useState(false);
 
   const load = async () => {
     if (!initData) return;
-    const r = await api.get("/savings", initData);
-    setTotal(r.total || 0);
-    setHistory(r.history || []);
+    
+    const cacheG = localStorage.getItem("goalsCache");
+    const cacheS = localStorage.getItem("savingsTotal");
+    if (goals.length === 0 && cacheG) {
+      try {
+        setGoals(JSON.parse(cacheG));
+        setTotal(parseFloat(cacheS || "0"));
+      } catch(e) {}
+    }
+
+    try {
+      const [rG, rS] = await Promise.all([
+        api.get("/goals", initData),
+        api.get("/savings", initData)
+      ]);
+      setGoals(rG.items || []);
+      setTotal(rS.total || 0);
+      localStorage.setItem("goalsCache", JSON.stringify(rG.items || []));
+      localStorage.setItem("savingsTotal", rS.total || 0);
+    } catch(e) {}
   };
 
   useEffect(() => {
-    load().catch(() => {});
+    load();
   }, [initData]);
 
-  const handleAdd = async () => {
-    const val = parseFloat(amount);
-    if (!initData || !val || val <= 0) return;
+  const handleCreateGoal = async () => {
+    const val = parseFloat(goalTarget);
+    if (!initData || !val || val <= 0 || !goalName) return;
     setSaving(true);
+    h.light();
     try {
-      await api.post("/savings", initData, { amount: val, comment });
+      await api.post("/goals", initData, { name: goalName, target_amount: val });
       h.success();
-      setAmount("");
-      setComment("");
-      setShowAdd(false);
+      setGoalName("");
+      setGoalTarget("");
+      setShowAddGoal(false);
       await load();
     } catch {
       h.error();
@@ -44,110 +68,205 @@ export default function SavingsPage() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDeleteGoal = async (id) => {
     if (!initData) return;
+    h.light();
     try {
-      await api.delete(`/savings/${id}`, initData);
+      await api.delete(`/goals/${id}`, initData);
       h.success();
-      await load();
+      setGoals((prev) => prev.filter(g => g.id !== id));
     } catch {
       h.error();
     }
   };
 
+  const handleDeposit = async () => {
+    const val = parseFloat(depositAmount);
+    if (!initData || !val || val <= 0 || !activeGoal) return;
+    setDepositing(true);
+    h.light();
+    try {
+      await api.post(`/goals/${activeGoal.id}/deposit`, initData, { amount: val });
+      h.success();
+      setDepositAmount("");
+      setActiveGoal(null);
+      await load();
+    } catch {
+      h.error();
+    } finally {
+      setDepositing(false);
+    }
+  };
+
+  const totalGoalsProgress = goals.reduce((acc, g) => acc + g.current_amount, 0);
+
   return (
-    <div className="px-4 pt-4 pb-24 max-w-lg mx-auto space-y-5">
-      <h1 className="text-xl font-bold">Накопичення</h1>
+    <div className="min-h-screen bg-black text-white relative flex flex-col font-sans overflow-x-hidden pb-24">
+      {/* TOP GRADIENT BG */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.8 }}
+        transition={{ duration: 1.5 }}
+        className="absolute top-0 left-0 w-full h-[50vh] pointer-events-none"
+        style={{ background: "linear-gradient(180deg, #059669 0%, #10b981 30%, #000000 100%)" }}
+      />
 
-      {/* Total card */}
-      <div className="rounded-[24px] p-6 bg-gradient-to-br from-[#10B981] to-[#047857] text-white shadow-[0_10px_30px_rgba(16,185,129,0.2)]">
-        <div className="flex items-center gap-2 mb-2">
-          <PiggyBank size={20} className="text-white/80" />
-          <p className="text-[15px] font-medium text-white/80">Всього відкладено</p>
-        </div>
-        <p className="text-4xl font-extrabold tracking-tight">{formatMoney(total).replace(" ₴", "")} ₴</p>
-      </div>
+      <div className="relative z-10 px-5 pt-8 space-y-6">
+        <h1 className="text-2xl font-bold tracking-tight">Накопичення</h1>
 
-      {/* Add button */}
-      <button
-        type="button"
-        onClick={() => setShowAdd(!showAdd)}
-        className="w-full py-3 rounded-xl bg-[var(--app-button)] text-[var(--tg-theme-button-text-color,white)] font-medium flex items-center justify-center gap-2"
-      >
-        <Plus size={18} />
-        Відкласти гроші
-      </button>
+        {/* Total card */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          className="rounded-[32px] p-6 bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 shadow-[0_10px_30px_rgba(16,185,129,0.15)] relative overflow-hidden"
+        >
+          <div className="absolute -right-4 -top-4 opacity-5 blur-2xl">
+             <PiggyBank size={120} />
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <PiggyBank size={20} className="text-[#34d399]" />
+            <p className="text-[15px] font-medium text-white/50">Загальна сума цілей</p>
+          </div>
+          <p className="text-4xl font-extrabold tracking-tight">{formatMoney(totalGoalsProgress).replace(" ₴", "")} <span className="text-2xl text-white/50">₴</span></p>
+        </motion.div>
 
-      {/* Add form */}
-      {showAdd && (
-        <div className="rounded-[24px] bg-[var(--app-card)] p-5 space-y-3">
-          <input
-            type="number"
-            className="w-full rounded-xl px-3 py-2.5 bg-black/20 border border-white/10 text-sm placeholder:text-[var(--app-hint)]"
-            placeholder="Сума, ₴"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            autoFocus
-          />
-          <input
-            className="w-full rounded-xl px-3 py-2.5 bg-black/20 border border-white/10 text-sm placeholder:text-[var(--app-hint)]"
-            placeholder="Коментар (необов'язково)"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setShowAdd(false)}
-              className="py-2.5 rounded-xl bg-black/20 text-sm"
+        {/* Goals List */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[15px] font-semibold text-white/80 flex items-center gap-2"><Target size={18} className="text-[#10b981]"/> Мої Цілі</p>
+            <button 
+              onClick={() => setShowAddGoal(!showAddGoal)}
+              className="text-[#10b981] text-sm font-semibold flex items-center gap-1 active:opacity-70"
             >
-              Скасувати
-            </button>
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={saving || !amount}
-              className="py-2.5 rounded-xl bg-green-500 text-white text-sm font-medium disabled:opacity-50"
-            >
-              {saving ? "..." : "Зберегти"}
+              <Plus size={16}/> Створити
             </button>
           </div>
-        </div>
-      )}
 
-      {/* History */}
-      {history.length > 0 && (
-        <div>
-          <p className="text-sm text-[var(--app-hint)] mb-2">Історія</p>
-          <ul className="space-y-2">
-            {history.map((x) => (
-              <li
-                key={x.id}
-                className="flex items-center gap-4 p-4 rounded-[20px] bg-[var(--app-card)] shadow-sm"
+          <AnimatePresence>
+            {showAddGoal && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                className="mb-4 overflow-hidden"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-semibold text-[#A3E635] tabular-nums tracking-tight mb-0.5">
-                    +{formatMoney(x.amount).replace(" ₴", "")} ₴
-                  </p>
-                  {x.comment && (
-                    <p className="text-[13px] text-white/80 truncate mb-1">{x.comment}</p>
-                  )}
-                  <p className="text-[11px] font-medium text-white/40">
-                    {new Date(x.created_at).toLocaleDateString("uk-UA")}
-                  </p>
+                <div className="rounded-[24px] bg-[#1C1C1E] p-5 space-y-3 border border-[#10b981]/20">
+                  <input
+                    className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
+                    placeholder="Назва (наприклад: На машину)"
+                    value={goalName}
+                    onChange={(e) => setGoalName(e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
+                    placeholder="Мета (наприклад: 50000)"
+                    value={goalTarget}
+                    onChange={(e) => setGoalTarget(e.target.value)}
+                  />
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => setShowAddGoal(false)}
+                      className="flex-1 py-3 rounded-[16px] bg-white/5 text-sm font-medium active:bg-white/10"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      onClick={handleCreateGoal}
+                      disabled={saving || !goalName || !goalTarget}
+                      className="flex-1 py-3 rounded-[16px] bg-[#10b981] text-white text-sm font-bold disabled:opacity-50 active:scale-95 transition-transform"
+                    >
+                      {saving ? "Створення..." : "Зберегти"}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(x.id)}
-                  className="p-3 rounded-2xl hover:bg-red-500/10 active:bg-red-500/20 shrink-0 transition-colors"
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="space-y-4">
+            {goals.map((g, i) => {
+              const progressPct = Math.min(100, Math.max(0, (g.current_amount / g.target_amount) * 100));
+              const isAdding = activeGoal?.id === g.id;
+
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
+                  key={g.id}
+                  className="rounded-[28px] bg-[#1C1C1E]/60 backdrop-blur-md border border-white/5 p-5 shadow-lg relative overflow-hidden"
                 >
-                  <Trash2 size={18} className="text-red-400/80" />
-                </button>
-              </li>
-            ))}
-          </ul>
+                  {/* Progress background bar */}
+                  <div 
+                    className="absolute top-0 left-0 h-full bg-[#10b981]/5 transition-all duration-1000 -z-10"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                  
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-[17px] font-bold text-white/95 tracking-tight">{g.name}</h3>
+                      <p className="text-[12px] text-white/40 mt-1 font-medium">{formatMoney(g.current_amount)} ₴ із {formatMoney(g.target_amount)} ₴</p>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteGoal(g.id)}
+                      className="p-2 -mr-2 rounded-full hover:bg-red-500/10 active:bg-red-500/20 text-red-400/50 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+
+                  <div className="h-2 w-full bg-black/40 rounded-full mb-5 overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }} animate={{ width: `${progressPct}%` }} transition={{ duration: 1, type: "spring" }}
+                      className="h-full bg-gradient-to-r from-[#059669] to-[#34d399] rounded-full"
+                    />
+                  </div>
+
+                  <AnimatePresence mode="wait">
+                    {!isAdding ? (
+                      <motion.button 
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                        onClick={() => setActiveGoal(g)}
+                        className="w-full py-3 rounded-[16px] bg-white/5 hover:bg-white/10 active:scale-[0.98] transition-all text-sm font-semibold flex items-center justify-center gap-1.5 text-[#34d399]"
+                      >
+                        <Plus size={16}/> Поповнити ціль
+                      </motion.button>
+                    ) : (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                        className="flex gap-2"
+                      >
+                         <input
+                           type="number"
+                           className="flex-1 rounded-[16px] px-3 py-2 bg-black/40 border border-[#10b981]/30 text-[14px] outline-none"
+                           placeholder="Сума поповнення"
+                           value={depositAmount}
+                           onChange={(e) => setDepositAmount(e.target.value)}
+                           autoFocus
+                         />
+                         <button 
+                           onClick={handleDeposit}
+                           disabled={depositing || !depositAmount}
+                           className="px-4 rounded-[16px] bg-[#10b981] text-white font-semibold disabled:opacity-50 active:scale-95"
+                         >
+                           {depositing ? "..." : <Plus size={20}/>}
+                         </button>
+                         <button 
+                           onClick={() => {setActiveGoal(null); setDepositAmount("");}}
+                           className="px-3 rounded-[16px] bg-white/10"
+                         >
+                           ✕
+                         </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                </motion.div>
+              );
+            })}
+            
+            {goals.length === 0 && (
+              <p className="text-center text-[13px] text-white/30 py-8 font-medium">У вас поки немає цілей.</p>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

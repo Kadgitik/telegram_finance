@@ -110,7 +110,12 @@ async def bootstrap(
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 
-    tx_match = {"telegram_id": telegram_id, "date": {"$gte": start, "$lt": end_excl}}
+    tx_match = {
+        "telegram_id": telegram_id, 
+        "date": {"$gte": start, "$lt": end_excl},
+        "internal_transfer": {"$ne": True},
+        "deleted": {"$ne": True},
+    }
 
     async def _balance_agg():
         return await (
@@ -125,7 +130,11 @@ async def bootstrap(
     async def _tx_recent():
         return await (
             db["transactions"]
-            .find(tx_match)
+            .find({
+                "telegram_id": telegram_id, 
+                "date": {"$gte": start, "$lt": end_excl},
+                "deleted": {"$ne": True}
+            })
             .sort("date", -1)
             .limit(10)
             .to_list(length=None)

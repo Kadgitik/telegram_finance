@@ -65,6 +65,13 @@ MONGODB_DB = _req("MONGODB_DB") or "finance_bot"
 WEBHOOK_BASE_URL = _req("WEBHOOK_URL").rstrip("/")
 WEBHOOK_SECRET = _telegram_safe_webhook_secret(_req("WEBHOOK_SECRET"))
 ENCRYPTION_KEY = _req("ENCRYPTION_KEY")
+# Секрет у шляху Mono webhook — захищає від підробки StatementItem.
+# Якщо не заданий окремо, деривується з WEBHOOK_SECRET (обидва секретні).
+MONO_WEBHOOK_SECRET = _req("MONO_WEBHOOK_SECRET") or (
+    hashlib.sha256((WEBHOOK_SECRET + ":mono").encode("utf-8")).hexdigest()[:32]
+    if WEBHOOK_SECRET
+    else ""
+)
 PORT = int(os.environ.get("PORT", "10000"))
 
 WEBHOOK_PATH = "/webhook"

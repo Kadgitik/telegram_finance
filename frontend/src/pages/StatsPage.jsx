@@ -50,11 +50,26 @@ export default function StatsPage() {
 
   useEffect(() => {
     if (!initData) return;
+    
+    // Cache Setup
+    const cacheKeyS = `statsCache_${month}`;
+    const cacheKeyT = `trendCache_${month}`;
+    if (!stats) {
+      const s = localStorage.getItem(cacheKeyS);
+      const t = localStorage.getItem(cacheKeyT);
+      try {
+        if (s) setStats(JSON.parse(s));
+        if (t) setTrend(JSON.parse(t));
+      } catch (e) {}
+    }
+
     (async () => {
       const [s, t] = await Promise.all([
         api.get(`/stats?period=month&month=${month}`, initData),
         api.get(`/stats/trend?days=30&month=${month}`, initData),
       ]);
+      localStorage.setItem(cacheKeyS, JSON.stringify(s));
+      localStorage.setItem(cacheKeyT, JSON.stringify(t));
       setStats(s);
       setTrend(t);
     })().catch(() => {});
@@ -76,13 +91,26 @@ export default function StatsPage() {
   const barVals = trend?.points?.map((p) => p.amount) || [];
 
   return (
-    <div className="px-4 pt-4 pb-24 max-w-lg mx-auto space-y-5">
-      <h1 className="text-xl font-bold">Статистика</h1>
-      <MonthSwitcher month={month} onChange={setStoredMonth} periodLabel={stats?.period_label || ""} />
+    <div className="min-h-screen bg-black text-white relative flex flex-col font-sans overflow-x-hidden pb-24">
+      {/* TOP GRADIENT BG */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.8 }}
+        transition={{ duration: 1.5 }}
+        className="absolute top-0 left-0 w-full h-[50vh] pointer-events-none"
+        style={{ background: "linear-gradient(180deg, #be185d 0%, #db2777 30%, #000000 100%)" }}
+      />
+      
+      <div className="relative z-10 px-5 pt-8 space-y-6">
+        <h1 className="text-2xl font-bold tracking-tight mb-4">Статистика</h1>
+        <MonthSwitcher month={month} onChange={setStoredMonth} periodLabel={stats?.period_label || ""} />
 
-      {stats && (
-        <div className="rounded-[24px] bg-[var(--app-card)] p-5">
-          <p className="font-semibold text-white/50 mb-1">Витрати за місяць</p>
+        {stats && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl"
+          >
+            <p className="font-semibold text-white/50 mb-1">Витрати за місяць</p>
           <div className="flex items-baseline gap-1">
             <h2 className="text-4xl font-extrabold tracking-tighter">
               {formatMoney(stats.total).replace(" ₴", "")}
@@ -91,12 +119,15 @@ export default function StatsPage() {
           </div>
           <p className="text-sm font-medium mt-1 flex items-center gap-1 text-white/40">{formatUsdApprox(stats.total, usdRate)}</p>
           <p className="text-[12px] font-medium text-white/40 mt-1">{stats.count} операцій</p>
-        </div>
-      )}
+          </motion.div>
+        )}
 
       {/* Doughnut chart */}
       {cats.length > 0 && (
-        <div className="rounded-[24px] bg-[var(--app-card)] p-5">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 20 }}
+          className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl"
+        >
           <p className="font-semibold text-white/50 mb-4">Розподіл витрат</p>
           <div className="w-48 h-48 mx-auto mb-4">
             <Doughnut
@@ -176,12 +207,15 @@ export default function StatsPage() {
               );
             })}
           </ul>
-        </div>
-      )}
+          </motion.div>
+        )}
 
       {/* Bar chart */}
       {trend && trend.points?.length > 0 && (
-        <div className="rounded-[24px] bg-[var(--app-card)] p-5">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 20 }}
+          className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl mb-6"
+        >
           <p className="font-semibold text-white/50 mb-4">Витрати по днях</p>
           <Bar
             data={{
@@ -202,8 +236,9 @@ export default function StatsPage() {
               },
             }}
           />
-        </div>
+        </motion.div>
       )}
+      </div>
     </div>
   );
 }

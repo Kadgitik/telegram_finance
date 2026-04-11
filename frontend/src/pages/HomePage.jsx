@@ -27,8 +27,24 @@ export default function HomePage() {
   const load = async () => {
     if (!initData) return;
     setErr("");
+    
+    // Stale-While-Revalidate Cache Setup
+    const cacheKey = `homeCache_${month}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached && tx.length === 0 && !balance) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed?.balance) setBalance(parsed.balance);
+        if (parsed?.transactions) setTx(parsed.transactions.items || []);
+        setMonoConnected(!!parsed?.mono_connected);
+      } catch (e) {
+        // ignore cache err
+      }
+    }
+
     try {
       const boot = await api.get(`/bootstrap?month=${month}`, initData);
+      localStorage.setItem(cacheKey, JSON.stringify(boot));
       if (boot?.balance) setBalance(boot.balance);
       if (boot?.transactions) setTx(boot.transactions.items || []);
       setMonoConnected(!!boot?.mono_connected);

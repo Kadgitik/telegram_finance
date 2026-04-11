@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import hmac
 import logging
 import time
 from datetime import datetime, timezone
@@ -11,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from backend.app.deps import telegram_user_id
 from backend.app.models.schemas import MonoConnectRequest, MonoSetDefaultAccount
+from bot import config
 from bot.db import queries
 from bot.db.mongo import get_db
 from bot.services import monobank
@@ -68,9 +71,8 @@ async def connect_monobank(
     if default_acc:
         await queries.set_default_account(db, telegram_id, default_acc)
 
-    # Auto-subscribe webhook
-    from bot.config import WEBHOOK_BASE_URL
-    webhook_url = f"{WEBHOOK_BASE_URL}/api/mono/webhook"
+    # Auto-subscribe webhook. Secret у шляху — захист від підробки ззовні.
+    webhook_url = f"{config.WEBHOOK_BASE_URL}/api/mono/webhook/{config.MONO_WEBHOOK_SECRET}"
     try:
         await monobank.set_webhook(body.token, webhook_url)
         await queries.set_mono_webhook_status(db, telegram_id, True)
@@ -151,7 +153,6 @@ async def sync_statement(
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
     """Sync last 31 days of transactions from Monobank for all accounts."""
-    import asyncio
     user = await queries.get_user(db, telegram_id)
     if not user or not user.get("mono_token"):
         raise HTTPException(400, "Monobank не підключено")
@@ -205,13 +206,18 @@ async def sync_statement(
     }
 
 
-@router.post("/webhook")
-async def mono_webhook_receiver(request: Request) -> dict:
+@router.post("/webhook/{secret}")
+async def mono_webhook_receiver(secret: str, request: Request) -> dict:
     """Receive real-time transaction notifications from Monobank.
 
-    This endpoint is called by Monobank when new transactions occur.
-    It does NOT require Telegram auth (Monobank calls it directly).
+    Secret у шляху — захист від підробки StatementItem сторонніми клієнтами
+    (репозиторій публічний, тому endpoint легко знайти). Monobank викликає
+    саме той URL, який ми передали у set_webhook → secret збігається.
     """
+    expected = config.MONO_WEBHOOK_SECRET
+    if not expected or not hmac.compare_digest(secret, expected):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     try:
         data = await request.json()
     except Exception:

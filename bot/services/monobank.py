@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -9,6 +11,12 @@ from typing import Any
 import aiohttp
 
 from bot.services.mcc import mcc_to_category
+
+# Опис Mono для внутрішніх переказів (між своїми картками/рахунками/банками).
+_INTERNAL_TRANSFER_RE = re.compile(
+    r"^(З|Зі|На)\s+.*(картки|картку|банки|банку|рахунку)$",
+    re.IGNORECASE,
+)
 
 BASE_URL = "https://api.monobank.ua"
 
@@ -30,7 +38,6 @@ async def _rate_limit_wait(endpoint: str) -> None:
     last = _last_call.get(endpoint, 0)
     diff = time.monotonic() - last
     if diff < _RATE_LIMIT_SECONDS:
-        import asyncio
         await asyncio.sleep(_RATE_LIMIT_SECONDS - diff)
     _last_call[endpoint] = time.monotonic()
 
@@ -115,6 +122,10 @@ def parse_statement_item(item: dict[str, Any], telegram_id: int) -> dict[str, An
     cashback_raw = item.get("cashbackAmount", 0)
     balance_raw = item.get("balance", 0)
 
+    # Mono може надіслати description: null — тому (... or "").
+    description = (item.get("description") or "").strip()
+    is_internal = bool(_INTERNAL_TRANSFER_RE.search(description))
+
     return {
         "telegram_id": telegram_id,
         "source": "monobank",
@@ -125,11 +136,13 @@ def parse_statement_item(item: dict[str, Any], telegram_id: int) -> dict[str, An
         "currency_code": item.get("currencyCode"),
         "category": category,
         "mcc": mcc,
-        "description": item.get("description", ""),
+        "description": description,
         "comment": item.get("comment") or None,
         "cashback": abs(cashback_raw) / 100.0,
         "balance_after": balance_raw / 100.0,
         "hold": bool(item.get("hold", False)),
+        "internal_transfer": is_internal,
+        "deleted": False,
         "date": tx_date,
         "created_at": datetime.now(timezone.utc),
     }

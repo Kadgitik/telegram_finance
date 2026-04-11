@@ -6,11 +6,23 @@ _LOGGER = logging.getLogger(__name__)
 class SecurityService:
     def __init__(self, key: str | None):
         self._fernet = None
-        if key:
-            try:
-                self._fernet = Fernet(key.encode('utf-8'))
-            except Exception as e:
-                _LOGGER.error("Недійсний ENCRYPTION_KEY: %s", e)
+        if not key:
+            # Dev-режим без ключа: шифрування вимкнене, але голосно попереджаємо.
+            _LOGGER.warning(
+                "ENCRYPTION_KEY не заданий — mono-токени зберігатимуться у plain text. "
+                "Для production обов'язково задайте Fernet-ключ."
+            )
+            return
+        try:
+            self._fernet = Fernet(key.encode('utf-8'))
+        except Exception as e:
+            # Ключ заданий, але некоректний — це критична помилка конфігурації.
+            # Раніше ми тихо падали у plain-text fallback, що саботувало security.
+            raise RuntimeError(
+                f"Недійсний ENCRYPTION_KEY: {e}. "
+                "Згенеруйте коректний ключ: "
+                "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+            ) from e
 
     def encrypt_token(self, token: str) -> str:
         """Encrypt a plain text token."""

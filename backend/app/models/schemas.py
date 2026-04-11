@@ -24,3 +24,12 @@ class MonoSetDefaultAccount(BaseModel):
 class SavingsCreate(BaseModel):
     amount: float = Field(gt=0)
     comment: str = ""
+
+
+class GoalCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    target_amount: float = Field(gt=0)
+
+
+class GoalDeposit(BaseModel):
+    amount: float = Field(gt=0)

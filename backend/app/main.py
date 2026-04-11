@@ -61,14 +61,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Policy
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# CORS Policy — фільтруємо порожні значення, щоб не додавати "" у allow_origins.
+_cors_origins = [
+    o for o in (
         "https://web.telegram.org",
         "https://app.telegram.org",
         config.WEBAPP_URL,
-    ],
+    ) if o
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

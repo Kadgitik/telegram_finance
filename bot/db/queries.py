@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -183,8 +184,11 @@ async def get_transaction(
 async def delete_transaction(
     db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId
 ) -> bool:
-    r = await db["transactions"].delete_one({"telegram_id": telegram_id, "_id": oid})
-    return r.deleted_count > 0
+    r = await db["transactions"].update_one(
+        {"telegram_id": telegram_id, "_id": oid},
+        {"$set": {"deleted": True}}
+    )
+    return r.modified_count > 0
 
 
 async def list_transactions(
@@ -200,7 +204,7 @@ async def list_transactions(
     skip: int = 0,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
-    q: dict[str, Any] = {"telegram_id": telegram_id}
+    q: dict[str, Any] = {"telegram_id": telegram_id, "deleted": {"$ne": True}}
     if type_ in ("expense", "income"):
         q["type"] = type_
     if category:
@@ -215,7 +219,9 @@ async def list_transactions(
             date_q["$lt"] = end
         q["date"] = date_q
     if search and search.strip():
-        rx = {"$regex": search.strip(), "$options": "i"}
+        # re.escape захищає від regex-injection / ReDoS у Mongo $regex.
+        safe = re.escape(search.strip())[:100]
+        rx = {"$regex": safe, "$options": "i"}
         q["$or"] = [{"description": rx}, {"comment": rx}, {"category": rx}]
     cur = (
         db["transactions"]
@@ -238,7 +244,7 @@ async def count_transactions(
     end: datetime | None = None,
     search: str | None = None,
 ) -> int:
-    q: dict[str, Any] = {"telegram_id": telegram_id}
+    q: dict[str, Any] = {"telegram_id": telegram_id, "deleted": {"$ne": True}}
     if type_ in ("expense", "income"):
         q["type"] = type_
     if category:
@@ -253,7 +259,8 @@ async def count_transactions(
             date_q["$lt"] = end
         q["date"] = date_q
     if search and search.strip():
-        rx = {"$regex": search.strip(), "$options": "i"}
+        safe = re.escape(search.strip())[:100]
+        rx = {"$regex": safe, "$options": "i"}
         q["$or"] = [{"description": rx}, {"comment": rx}, {"category": rx}]
     return await db["transactions"].count_documents(q)
 
@@ -395,3 +402,30 @@ def period_year() -> tuple[datetime, datetime]:
 
 def default_db() -> AsyncIOMotorDatabase:
     return get_db()
+    
+
+async def list_goals(db: AsyncIOMotorDatabase, telegram_id: int) -> list[dict[str, Any]]:
+    return await db["goals"].find({"telegram_id": telegram_id}).sort("created_at", -1).to_list(length=None)
+
+async def add_goal(db: AsyncIOMotorDatabase, telegram_id: int, name: str, target: float) -> str:
+    from bot.db.mongo import get_db
+    doc = {
+        "telegram_id": telegram_id,
+        "name": name,
+        "target_amount": target,
+        "current_amount": 0.0,
+        "created_at": datetime.now(timezone.utc),
+    }
+    r = await db["goals"].insert_one(doc)
+    return str(r.inserted_id)
+
+async def delete_goal(db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId) -> bool:
+    r = await db["goals"].delete_one({"telegram_id": telegram_id, "_id": oid})
+    return r.deleted_count > 0
+
+async def deposit_goal(db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId, amount: float) -> bool:
+    r = await db["goals"].update_one(
+        {"telegram_id": telegram_id, "_id": oid},
+        {"$inc": {"current_amount": amount}}
+    )
+    return r.modified_count > 0

@@ -23,7 +23,8 @@ def pipeline_balance_month(
             "$match": {
                 "telegram_id": telegram_id,
                 "date": {"$gte": start, "$lt": end_excl},
-                "category": {"$ne": "Переказ"},
+                "internal_transfer": {"$ne": True},
+                "deleted": {"$ne": True},
             }
         },
         {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
@@ -45,7 +46,8 @@ def pipeline_stats_expense_by_category(
                 "telegram_id": telegram_id,
                 "type": "expense",
                 "date": bound,
-                "category": {"$ne": "Переказ"},
+                "internal_transfer": {"$ne": True},
+                "deleted": {"$ne": True},
             }
         },
         {"$group": {"_id": "$category", "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
@@ -68,7 +70,8 @@ def pipeline_daily_expense_totals(
                 "telegram_id": telegram_id,
                 "type": "expense",
                 "date": bound,
-                "category": {"$ne": "Переказ"},
+                "internal_transfer": {"$ne": True},
+                "deleted": {"$ne": True},
             }
         },
         {
