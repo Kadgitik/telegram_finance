@@ -124,29 +124,29 @@ export default function HistoryPage() {
               return (
                 <li
                   key={x.id}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-[var(--app-secondary)]"
+                  className="flex items-center gap-4 bg-[var(--app-card)] p-4 rounded-[20px] transition-colors shadow-sm"
                 >
                   <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
                     style={{ backgroundColor: `${cat.color}20` }}
                   >
-                    <Icon size={18} color={cat.color} />
+                    <Icon size={22} color={cat.color} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="font-semibold text-[16px] truncate text-white/95 mb-0.5">
                       {x.description || x.category}
                     </p>
-                    <p className="text-xs text-[var(--app-hint)] truncate">
-                      {x.source === "monobank" ? "\uD83D\uDCB3" : "\uD83D\uDCB5"} {x.category} · {formatTime(x.date)}
+                    <p className="text-[12px] font-medium text-white/40 truncate">
+                      {x.source === "monobank" ? "💳" : "💵"} {x.category} · {formatTime(x.date)}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
                     <p
-                      className={`text-sm font-medium tabular-nums ${
-                        x.type === "income" ? "text-green-400" : "text-[var(--app-text)]"
+                      className={`font-semibold tabular-nums text-[16px] tracking-tight ${
+                        x.type === "income" ? "text-[var(--app-button)]" : "text-white/90"
                       }`}
                     >
-                      {x.type === "income" ? "+" : "-"}{formatMoney(x.amount)}
+                      {x.type === "income" ? "+" : "-"}{formatMoney(x.amount).replace(" ₴", "")}
                     </p>
                   </div>
                   {x.source === "cash" && (

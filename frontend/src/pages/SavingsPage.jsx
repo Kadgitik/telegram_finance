@@ -60,12 +60,12 @@ export default function SavingsPage() {
       <h1 className="text-xl font-bold">Накопичення</h1>
 
       {/* Total card */}
-      <div className="rounded-2xl p-5 bg-gradient-to-br from-green-600/80 to-emerald-700/80 text-white shadow-lg">
-        <div className="flex items-center gap-2 mb-1">
-          <PiggyBank size={20} />
-          <p className="text-sm opacity-90">Всього відкладено</p>
+      <div className="rounded-[24px] p-6 bg-gradient-to-br from-[#10B981] to-[#047857] text-white shadow-[0_10px_30px_rgba(16,185,129,0.2)]">
+        <div className="flex items-center gap-2 mb-2">
+          <PiggyBank size={20} className="text-white/80" />
+          <p className="text-[15px] font-medium text-white/80">Всього відкладено</p>
         </div>
-        <p className="text-4xl font-bold">{formatMoney(total)}</p>
+        <p className="text-4xl font-extrabold tracking-tight">{formatMoney(total).replace(" ₴", "")} ₴</p>
       </div>
 
       {/* Add button */}
@@ -80,7 +80,7 @@ export default function SavingsPage() {
 
       {/* Add form */}
       {showAdd && (
-        <div className="rounded-xl bg-[var(--app-secondary)] p-4 space-y-3">
+        <div className="rounded-[24px] bg-[var(--app-card)] p-5 space-y-3">
           <input
             type="number"
             className="w-full rounded-xl px-3 py-2.5 bg-black/20 border border-white/10 text-sm placeholder:text-[var(--app-hint)]"
@@ -119,29 +119,29 @@ export default function SavingsPage() {
       {history.length > 0 && (
         <div>
           <p className="text-sm text-[var(--app-hint)] mb-2">Історія</p>
-          <ul className="space-y-1.5">
+          <ul className="space-y-2">
             {history.map((x) => (
               <li
                 key={x.id}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-[var(--app-secondary)]"
+                className="flex items-center gap-4 p-4 rounded-[20px] bg-[var(--app-card)] shadow-sm"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-green-400 tabular-nums">
-                    +{formatMoney(x.amount)}
+                  <p className="text-[16px] font-semibold text-[#A3E635] tabular-nums tracking-tight mb-0.5">
+                    +{formatMoney(x.amount).replace(" ₴", "")} ₴
                   </p>
                   {x.comment && (
-                    <p className="text-xs text-[var(--app-hint)] truncate">{x.comment}</p>
+                    <p className="text-[13px] text-white/80 truncate mb-1">{x.comment}</p>
                   )}
-                  <p className="text-xs text-[var(--app-hint)]">
+                  <p className="text-[11px] font-medium text-white/40">
                     {new Date(x.created_at).toLocaleDateString("uk-UA")}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleDelete(x.id)}
-                  className="p-1.5 rounded-lg hover:bg-red-500/20 shrink-0"
+                  className="p-3 rounded-2xl hover:bg-red-500/10 active:bg-red-500/20 shrink-0 transition-colors"
                 >
-                  <Trash2 size={14} className="text-[var(--app-hint)]" />
+                  <Trash2 size={18} className="text-red-400/80" />
                 </button>
               </li>
             ))}

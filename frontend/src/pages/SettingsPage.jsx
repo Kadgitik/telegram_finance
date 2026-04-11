@@ -88,7 +88,7 @@ export default function SettingsPage() {
       <h1 className="text-xl font-bold">Налаштування</h1>
 
       {/* Monobank connection status */}
-      <div className="rounded-xl bg-[var(--app-secondary)] p-4">
+      <div className="rounded-[24px] bg-[var(--app-card)] p-5">
         <div className="flex items-center gap-2 mb-3">
           {connected ? (
             <CheckCircle size={18} className="text-green-400" />
@@ -178,7 +178,7 @@ export default function SettingsPage() {
       )}
 
       {/* Export */}
-      <div className="rounded-xl bg-[var(--app-secondary)] p-4">
+      <div className="rounded-[24px] bg-[var(--app-card)] p-5">
         <p className="font-semibold mb-2">Експорт</p>
         <button
           type="button"

@@ -81,18 +81,23 @@ export default function StatsPage() {
       <MonthSwitcher month={month} onChange={setStoredMonth} periodLabel={stats?.period_label || ""} />
 
       {stats && (
-        <div className="rounded-xl bg-[var(--app-secondary)] p-4">
-          <p className="text-sm text-[var(--app-hint)]">Витрати за місяць</p>
-          <p className="text-3xl font-bold">{formatMoney(stats.total)}</p>
-          <p className="text-xs text-[var(--app-hint)]">{formatUsdApprox(stats.total, usdRate)}</p>
-          <p className="text-xs text-[var(--app-hint)] mt-1">{stats.count} операцій</p>
+        <div className="rounded-[24px] bg-[var(--app-card)] p-5">
+          <p className="font-semibold text-white/50 mb-1">Витрати за місяць</p>
+          <div className="flex items-baseline gap-1">
+            <h2 className="text-4xl font-extrabold tracking-tighter">
+              {formatMoney(stats.total).replace(" ₴", "")}
+            </h2>
+            <span className="text-2xl font-medium text-white/50">₴</span>
+          </div>
+          <p className="text-sm font-medium mt-1 flex items-center gap-1 text-white/40">{formatUsdApprox(stats.total, usdRate)}</p>
+          <p className="text-[12px] font-medium text-white/40 mt-1">{stats.count} операцій</p>
         </div>
       )}
 
       {/* Doughnut chart */}
       {cats.length > 0 && (
-        <div className="rounded-xl bg-[var(--app-secondary)] p-4">
-          <p className="text-sm text-[var(--app-hint)] mb-3">Розподіл витрат</p>
+        <div className="rounded-[24px] bg-[var(--app-card)] p-5">
+          <p className="font-semibold text-white/50 mb-4">Розподіл витрат</p>
           <div className="w-48 h-48 mx-auto mb-4">
             <Doughnut
               data={doughnutData}
@@ -113,22 +118,22 @@ export default function StatsPage() {
               return (
                 <li key={c.name} className="rounded-lg overflow-hidden transition-colors">
                   <div
-                    className="flex items-center gap-3 px-2 py-2 cursor-pointer active:bg-black/10 rounded-lg"
+                    className="flex items-center gap-4 px-4 py-3 cursor-pointer active:bg-black/20 rounded-[20px] transition-colors"
                     onClick={() => toggleCat(c.name)}
                   >
                     <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                      className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
                       style={{ backgroundColor: `${cfg.color}20` }}
                     >
-                      <Icon size={16} color={cfg.color} />
+                      <Icon size={22} color={cfg.color} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{c.name}</p>
-                      <p className="text-xs text-[var(--app-hint)]">{c.count} оп.</p>
+                      <p className="font-semibold text-[16px] truncate text-white/95">{c.name}</p>
+                      <p className="text-[12px] font-medium text-white/40">{c.count} оп.</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium tabular-nums">-{formatMoney(c.amount)}</p>
-                      <p className="text-xs text-[var(--app-hint)]">{c.percent}%</p>
+                      <p className="font-semibold tabular-nums text-[16px] tracking-tight">{formatMoney(c.amount).replace(" ₴", "")}</p>
+                      <p className="text-[12px] font-medium text-white/40">{c.percent}%</p>
                     </div>
                   </div>
                   
@@ -140,28 +145,28 @@ export default function StatsPage() {
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden bg-black/10 rounded-lg mt-1"
                       >
-                        <div className="p-3 space-y-3">
+                        <div className="p-3 space-y-2 mt-1 mx-2 bg-[#212124] rounded-[20px]">
                           {loadingCat ? (
-                            <p className="text-xs text-center text-[var(--app-hint)]">Завантаження...</p>
+                            <p className="text-xs text-center text-[var(--app-hint)] py-2">Завантаження...</p>
                           ) : catTx.length > 0 ? (
                             catTx.map((tx) => (
-                              <div key={tx.id} className="flex justify-between items-center gap-2">
+                              <div key={tx.id} className="flex justify-between items-center gap-2 px-2 py-1.5">
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium truncate text-white/90">
+                                  <p className="font-medium text-[14px] truncate text-white/90">
                                     {tx.description || tx.category || "—"}
                                   </p>
-                                  <p className="text-[10px] text-[var(--app-hint)]">
+                                  <p className="text-[11px] text-white/40">
                                     {tx.date.slice(8, 10)}.{tx.date.slice(5, 7)} {tx.date.slice(11, 16)}
                                     {tx.source === 'monobank' ? " · 💳" : ""}
                                   </p>
                                 </div>
-                                <p className="text-xs font-medium tabular-nums shrink-0">
-                                  -{formatMoney(tx.amount)}
+                                <p className="font-semibold tabular-nums text-[14px] tracking-tight shrink-0">
+                                  {formatMoney(tx.amount).replace(" ₴", "")}
                                 </p>
                               </div>
                             ))
                           ) : (
-                            <p className="text-xs text-center text-[var(--app-hint)]">Немає деталей</p>
+                            <p className="text-xs text-center text-[var(--app-hint)] py-2">Немає деталей</p>
                           )}
                         </div>
                       </motion.div>
@@ -176,8 +181,8 @@ export default function StatsPage() {
 
       {/* Bar chart */}
       {trend && trend.points?.length > 0 && (
-        <div className="rounded-xl bg-[var(--app-secondary)] p-4">
-          <p className="text-sm text-[var(--app-hint)] mb-2">Витрати по днях</p>
+        <div className="rounded-[24px] bg-[var(--app-card)] p-5">
+          <p className="font-semibold text-white/50 mb-4">Витрати по днях</p>
           <Bar
             data={{
               labels: barLabels,

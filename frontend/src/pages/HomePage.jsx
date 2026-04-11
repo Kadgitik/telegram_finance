@@ -54,7 +54,12 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (ready && initData) load();
+    if (ready && initData) {
+      load();
+      // Фонове опитування кожні 12 секунд для "Прямого Ефіру"
+      const interval = setInterval(() => load(), 12000);
+      return () => clearInterval(interval);
+    }
   }, [ready, initData, month]);
 
   return (
@@ -69,19 +74,13 @@ export default function HomePage() {
       />
 
       <div className="relative z-10 flex-1 flex flex-col pt-4">
-        {/* Header */}
+        {/* Header (Empty placeholder for alignment & Settings) */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className="px-5 flex justify-between items-center mb-6 mt-2"
+          className="px-5 flex justify-end items-center mb-6 mt-2"
         >
-           <div>
-             <p className="text-white/60 text-sm font-medium">Welcome back!</p>
-             <h1 className="text-xl font-bold tracking-tight">
-               {tgUser?.first_name || "Користувач"}
-             </h1>
-           </div>
            <button 
              onClick={() => nav("/settings")} 
              className="w-10 h-10 rounded-full bg-white/10 border border-white/5 flex items-center justify-center backdrop-blur-md active:bg-white/20 transition-colors"
@@ -100,7 +99,7 @@ export default function HomePage() {
           className="px-5 mb-8"
         >
           <div className="flex items-center gap-2 mb-1 text-white/60 text-sm font-medium">
-            Your balance
+            Ваш баланс
             <span className="text-[10px] bg-white/10 rounded px-1.5 py-0.5 text-white/80 uppercase font-bold tracking-wider">
               {month}
             </span>
@@ -112,8 +111,8 @@ export default function HomePage() {
             <span className="text-2xl font-medium text-white/50">₴</span>
           </div>
           {usdRate ? (
-             <p className="text-green-400 text-sm font-medium mt-1 flex items-center gap-1">
-               ≈ {formatUsdApprox(balance?.balance || 0, usdRate)}
+             <p className="text-[#A3E635] text-sm font-medium mt-1 flex items-center gap-1">
+               {formatUsdApprox(balance?.balance || 0, usdRate)}
              </p>
           ) : null}
           
@@ -145,7 +144,7 @@ export default function HomePage() {
                 <div className="w-9 h-9 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center">
                    <ArrowUpRight size={18} className="text-[#A78BFA]" />
                 </div>
-                <p className="text-[15px] font-semibold text-[#C4B5FD]">Income</p>
+                <p className="text-[15px] font-semibold text-[#C4B5FD]">Доходи</p>
               </div>
               <p className="text-2xl font-bold tracking-tight text-white/95 text-left">
                  {balance ? formatMoney(balance.income).replace(" ₴", "") : "0"}
@@ -165,7 +164,7 @@ export default function HomePage() {
                 <div className="w-9 h-9 rounded-full bg-[#EC4899]/20 flex items-center justify-center">
                    <ArrowDownLeft size={18} className="text-[#F472B6]" />
                 </div>
-                <p className="text-[15px] font-semibold text-[#FBCFE8]">Expenses</p>
+                <p className="text-[15px] font-semibold text-[#FBCFE8]">Витрати</p>
               </div>
               <p className="text-2xl font-bold tracking-tight text-white/95 text-left">
                  {balance ? formatMoney(balance.expense).replace(" ₴", "") : "0"}
@@ -184,9 +183,9 @@ export default function HomePage() {
            <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
            
            <div className="flex justify-between items-end mb-5 px-1 bg-transparent border-0 text-left">
-             <h3 className="text-[19px] font-bold text-white/90">Recent Transaction</h3>
+             <h3 className="text-[19px] font-bold text-white/90">Останні операції</h3>
              <Link to="/history" className="text-[13px] font-semibold text-[#A78BFA] active:opacity-70 transition-opacity">
-               See all
+               Всі
              </Link>
            </div>
            

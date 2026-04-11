@@ -15,7 +15,7 @@ export function formatUsdApprox(uah, usdRate) {
   if (!rate) return "";
   const usd = value / rate;
   const digits = Math.abs(usd) < 100 ? 2 : 0;
-  return `≈ $${new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(usd)}`;
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(usd)} $`;
 }
 
 export function formatTime(iso) {
