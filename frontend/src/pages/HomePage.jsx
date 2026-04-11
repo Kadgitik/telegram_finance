@@ -8,6 +8,7 @@ import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../context/MonthContext";
 import { formatMoney, formatUsdApprox } from "../utils/formatters";
+import MonthSwitcher from "../components/MonthSwitcher";
 import { getCategoryConfig } from "../utils/constants";
 
 export default function HomePage() {
@@ -114,11 +115,11 @@ export default function HomePage() {
           transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 20 }}
           className="px-5 mb-8"
         >
-          <div className="flex items-center gap-2 mb-1 text-white/60 text-sm font-medium">
-            Ваш баланс
-            <span className="text-[10px] bg-white/10 rounded px-1.5 py-0.5 text-white/80 uppercase font-bold tracking-wider">
-              {month}
-            </span>
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-white/60 text-sm font-medium">Ваш баланс</div>
+            <div className="scale-90 origin-right">
+              <MonthSwitcher month={month} onChange={setStoredMonth} periodLabel="" />
+            </div>
           </div>
           <div className="flex items-baseline gap-1">
             <h2 className="text-5xl font-extrabold tracking-tighter">

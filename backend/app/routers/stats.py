@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -29,6 +30,32 @@ _FX_TTL_SECONDS = 600
 
 def _db() -> AsyncIOMotorDatabase:
     return get_db()
+
+_INTERNAL_RX = re.compile(
+    r"^(З|Зі|На)\s+.*(картки|картку|банки|банку|рахунку)$"
+    r"|^Переказ на картку$"
+    r"|^Поповнення картки$",
+    re.IGNORECASE,
+)
+
+@router.post("/admin/fix-transfers")
+async def fix_transfers(
+    telegram_id: int = Depends(telegram_user_id),
+    db: AsyncIOMotorDatabase = Depends(_db),
+) -> dict:
+    docs = await db["transactions"].find(
+        {"telegram_id": telegram_id, "source": "monobank", "internal_transfer": {"$ne": True}}
+    ).to_list(None)
+    count = 0
+    for d in docs:
+        desc = d.get("description", "").strip()
+        if _INTERNAL_RX.search(desc):
+            await db["transactions"].update_one(
+                {"_id": d["_id"]},
+                {"$set": {"internal_transfer": True}}
+            )
+            count += 1
+    return {"fixed": count}
 
 
 def _tx_out(doc: dict[str, Any]) -> dict[str, Any]:
