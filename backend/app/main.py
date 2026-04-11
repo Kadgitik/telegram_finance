@@ -127,7 +127,12 @@ async def spa_fallback(full_path: str):
         raise HTTPException(404)
     index = _STATIC / "index.html"
     if index.is_file():
-        return FileResponse(index)
+        return FileResponse(
+            index,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            },
+        )
     return JSONResponse(
         {"detail": "Frontend not built — run npm run build in frontend/"},
         status_code=503,
