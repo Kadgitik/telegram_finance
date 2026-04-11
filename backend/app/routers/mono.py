@@ -68,6 +68,16 @@ async def connect_monobank(
     if default_acc:
         await queries.set_default_account(db, telegram_id, default_acc)
 
+    # Auto-subscribe webhook
+    from bot.config import WEBHOOK_BASE_URL
+    webhook_url = f"{WEBHOOK_BASE_URL}/api/mono/webhook"
+    try:
+        await monobank.set_webhook(body.token, webhook_url)
+        await queries.set_mono_webhook_status(db, telegram_id, True)
+    except Exception as e:
+        _LOGGER.error("Failed to auto-set mono webhook: %s", e)
+        await queries.set_mono_webhook_status(db, telegram_id, False)
+
     return {
         "ok": True,
         "client_name": info.get("name"),
