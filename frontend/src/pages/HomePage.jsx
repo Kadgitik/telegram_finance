@@ -18,7 +18,7 @@ export default function HomePage() {
   const [balance, setBalance] = useState(null);
   const [tx, setTx] = useState([]);
   const [err, setErr] = useState("");
-  const [month] = useStoredMonth();
+  const [month, setStoredMonth] = useStoredMonth();
   const [monoConnected, setMonoConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const usdRate = useFxRate();
