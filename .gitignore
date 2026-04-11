@@ -14,5 +14,5 @@ __pycache__/
 Thumbs.db
 frontend/node_modules/
 frontend/dist/
-static/
+# static/ — production build, комітимо для деплою (FastAPI роздає з кореня static/)
 prompt-fixes.md
