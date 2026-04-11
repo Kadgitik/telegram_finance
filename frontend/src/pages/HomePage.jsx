@@ -1,27 +1,28 @@
 import { motion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, BarChart3, RefreshCw, Settings } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, RefreshCw, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import MonthSwitcher from "../components/MonthSwitcher";
 import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../context/MonthContext";
-import { formatMoney, formatTime, formatUsdApprox } from "../utils/formatters";
-import { ACCENT, getCategoryConfig } from "../utils/constants";
+import { formatMoney, formatUsdApprox } from "../utils/formatters";
+import { getCategoryConfig } from "../utils/constants";
 
 export default function HomePage() {
   const nav = useNavigate();
-  const { initData, ready } = useTelegram();
+  const { initData, ready, tg } = useTelegram();
   const h = useHaptic();
   const [balance, setBalance] = useState(null);
   const [tx, setTx] = useState([]);
   const [err, setErr] = useState("");
-  const [month, setStoredMonth] = useStoredMonth();
+  const [month] = useStoredMonth();
   const [monoConnected, setMonoConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const usdRate = useFxRate();
+
+  const tgUser = tg?.initDataUnsafe?.user;
 
   const load = async () => {
     if (!initData) return;
@@ -57,165 +58,165 @@ export default function HomePage() {
   }, [ready, initData, month]);
 
   return (
-    <div className="px-4 pt-4 pb-24 max-w-lg mx-auto">
-      {!initData && (
-        <p className="text-sm text-orange-400 mb-4">
-          Відкрий застосунок через Telegram, щоб авторизуватись.
-        </p>
-      )}
+    <div className="min-h-screen bg-black text-white relative flex flex-col font-sans overflow-x-hidden">
+      {/* TOP GRADIENT BG */}
+      <div 
+        className="absolute top-0 left-0 w-full h-[55vh] opacity-90 pointer-events-none"
+        style={{ background: "linear-gradient(180deg, #6D28D9 0%, #4C1D95 40%, #000000 100%)" }}
+      />
 
-      {err && <p className="text-red-400 text-sm mb-2">{err}</p>}
-
-      <div className="flex items-stretch gap-2 mb-1">
-        <div className="flex-1 min-w-0">
-          <MonthSwitcher
-            month={month}
-            onChange={setStoredMonth}
-            periodLabel={balance?.period_label || ""}
-          />
+      <div className="relative z-10 flex-1 flex flex-col pt-4">
+        {/* Header */}
+        <div className="px-5 flex justify-between items-center mb-6 mt-2">
+           <div>
+             <p className="text-white/60 text-sm font-medium">Welcome back!</p>
+             <h1 className="text-xl font-bold tracking-tight">
+               {tgUser?.first_name || "Користувач"}
+             </h1>
+           </div>
+           <button 
+             onClick={() => nav("/settings")} 
+             className="w-10 h-10 rounded-full bg-white/10 border border-white/5 flex items-center justify-center backdrop-blur-md active:bg-white/20 transition-colors"
+           >
+             <Settings size={20} className="text-white/80" />
+           </button>
         </div>
-        <button
-          type="button"
-          className="shrink-0 h-[46px] w-[46px] rounded-xl border border-white/10 bg-[var(--app-secondary)] flex items-center justify-center mt-1"
-          onClick={() => nav("/settings")}
-          aria-label="Налаштування"
-        >
-          <Settings size={18} />
-        </button>
-      </div>
 
-      {/* Balance card */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl p-5 mb-4 text-white shadow-lg relative"
-        style={{
-          background: `linear-gradient(135deg, ${ACCENT.blue}, ${ACCENT.purple})`,
-        }}
-      >
-        {usdRate ? (
-          <p className="absolute top-3 right-3 text-[10px] opacity-80">
-            1$ = {usdRate.toFixed(2)} ₴
-          </p>
-        ) : null}
-        <p className="text-sm opacity-90">Баланс за місяць</p>
-        <p className="text-4xl font-bold my-2">
-          {balance ? formatMoney(balance.balance) : "—"}
-        </p>
-        {balance?.mono_balance != null && (
-          <p className="text-xs opacity-80 mb-1">
-            Monobank: {formatMoney(balance.mono_balance)}
-          </p>
-        )}
-        <p className="text-xs opacity-90">
-          {balance ? formatUsdApprox(balance.balance, usdRate) : ""}
-        </p>
-        <div className="flex gap-6 text-sm mt-1">
-          <span style={{ color: ACCENT.green }}>
-            ↑ {balance ? formatMoney(balance.income) : "—"}
-          </span>
-          <span style={{ color: "#ffcccc" }}>
-            ↓ {balance ? formatMoney(balance.expense) : "—"}
-          </span>
-        </div>
-      </motion.div>
+        {err && <p className="text-red-400 text-sm mb-2 px-5">{err}</p>}
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <Link to="/add?type=expense" onClick={() => h.light()}>
-          <motion.div
-            whileTap={{ scale: 0.96 }}
-            className="rounded-xl p-3 text-left shadow bg-[var(--app-secondary)] border border-white/5"
-            style={{ borderColor: `${ACCENT.red}44` }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <ArrowDownLeft size={16} color={ACCENT.red} />
-              <p className="text-sm font-semibold">Витрата</p>
-            </div>
-            <p className="text-xs text-[var(--app-hint)]">Додати готівкою</p>
-          </motion.div>
-        </Link>
-
-        <Link to="/add?type=income" onClick={() => h.light()}>
-          <motion.div
-            whileTap={{ scale: 0.96 }}
-            className="rounded-xl p-3 text-left shadow bg-[var(--app-secondary)] border border-white/5"
-            style={{ borderColor: `${ACCENT.green}44` }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <ArrowUpRight size={16} color={ACCENT.green} />
-              <p className="text-sm font-semibold">Дохід</p>
-            </div>
-            <p className="text-xs text-[var(--app-hint)]">Додати вручну</p>
-          </motion.div>
-        </Link>
-      </div>
-
-      {monoConnected && (
-        <button
-          type="button"
-          onClick={syncMono}
-          disabled={syncing}
-          className="w-full mb-4 py-2.5 rounded-xl bg-[var(--app-secondary)] border border-white/10 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
-          {syncing ? "Синхронізація..." : "Синхронізувати Monobank"}
-        </button>
-      )}
-
-      {/* Recent transactions */}
-      <div className="flex justify-between items-center mb-2">
-        <h2 className="font-semibold">Останні операції</h2>
-        <Link to="/history" className="text-sm text-[var(--app-button)]">
-          Усі →
-        </Link>
-      </div>
-      <ul className="space-y-1.5">
-        {tx.map((x) => {
-          const cat = getCategoryConfig(x.category);
-          const Icon = cat.icon;
-          return (
-            <li
-              key={x.id}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-[var(--app-secondary)]"
+        {/* Balance Area */}
+        <div className="px-5 mb-8">
+          <div className="flex items-center gap-2 mb-1 text-white/60 text-sm font-medium">
+            Your balance
+            <span className="text-[10px] bg-white/10 rounded px-1.5 py-0.5 text-white/80 uppercase font-bold tracking-wider">
+              {month}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <h2 className="text-5xl font-extrabold tracking-tighter">
+              {balance ? formatMoney(balance.balance).replace(" ₴", "") : "0"}
+            </h2>
+            <span className="text-2xl font-medium text-white/50">₴</span>
+          </div>
+          {usdRate ? (
+             <p className="text-green-400 text-sm font-medium mt-1 flex items-center gap-1">
+               ≈ {formatUsdApprox(balance?.balance || 0, usdRate)}
+             </p>
+          ) : null}
+          
+          {/* Mono Sync Button */}
+          {monoConnected && (
+            <button 
+              onClick={syncMono} 
+              disabled={syncing} 
+              className="mt-4 text-xs font-semibold bg-white/10 px-3.5 py-2 rounded-full flex items-center gap-1.5 border border-white/5 backdrop-blur-md text-white/90 active:bg-white/20 transition-all disabled:opacity-50"
             >
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                style={{ backgroundColor: `${cat.color}20` }}
-              >
-                <Icon size={18} color={cat.color} />
+              <RefreshCw size={14} className={syncing ? "animate-spin text-purple-400" : "text-purple-400"} />
+              {syncing ? "Оновлення..." : "Оновити Monobank"}
+            </button>
+          )}
+        </div>
+
+        {/* Income & Expenses Cards */}
+        <div className="px-5 flex gap-3 mb-8 text-left">
+          <Link to="/add?type=income" onClick={() => h.light()} className="flex-1 block text-left">
+            <motion.div 
+              whileTap={{ scale: 0.96 }} 
+              className="rounded-[24px] p-4 bg-[#8B5CF6]/15 border border-[#8B5CF6]/20 backdrop-blur-xl relative overflow-hidden"
+            >
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-9 h-9 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center">
+                   <ArrowUpRight size={18} className="text-[#A78BFA]" />
+                </div>
+                <p className="text-[15px] font-semibold text-[#C4B5FD]">Income</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {x.description || x.category || "—"}
-                </p>
-                <p className="text-xs text-[var(--app-hint)] truncate">
-                  {x.source === "monobank" ? "💳" : "💵"} {x.category} · {formatTime(x.date)}
-                </p>
+              <p className="text-2xl font-bold tracking-tight text-white/95 text-left">
+                 {balance ? formatMoney(balance.income).replace(" ₴", "") : "0"}
+              </p>
+            </motion.div>
+          </Link>
+          
+          <Link to="/add?type=expense" onClick={() => h.light()} className="flex-1 block text-left">
+            <motion.div 
+              whileTap={{ scale: 0.96 }} 
+              className="rounded-[24px] p-4 bg-[#EC4899]/15 border border-[#EC4899]/20 backdrop-blur-xl relative overflow-hidden"
+            >
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-9 h-9 rounded-full bg-[#EC4899]/20 flex items-center justify-center">
+                   <ArrowDownLeft size={18} className="text-[#F472B6]" />
+                </div>
+                <p className="text-[15px] font-semibold text-[#FBCFE8]">Expenses</p>
               </div>
-              <div className="text-right shrink-0">
-                <p
-                  className={`text-sm font-medium tabular-nums ${
-                    x.type === "income" ? "text-green-400" : "text-[var(--app-text)]"
-                  }`}
-                >
-                  {x.type === "income" ? "+" : "-"}{formatMoney(x.amount)}
-                </p>
-                {usdRate ? (
-                  <p className="text-[10px] text-[var(--app-hint)]">
-                    {formatUsdApprox(x.amount, usdRate)}
-                  </p>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
-        {tx.length === 0 && (
-          <li className="text-center text-sm text-[var(--app-hint)] py-8">
-            Немає операцій за цей період
-          </li>
-        )}
-      </ul>
+              <p className="text-2xl font-bold tracking-tight text-white/95 text-left">
+                 {balance ? formatMoney(balance.expense).replace(" ₴", "") : "0"}
+              </p>
+            </motion.div>
+          </Link>
+        </div>
+
+        {/* Bottom Sheet - Recent Transactions */}
+        <motion.div 
+           initial={{ y: 50, opacity: 0 }}
+           animate={{ y: 0, opacity: 1 }}
+           transition={{ duration: 0.4, ease: "easeOut" }}
+           className="flex-1 bg-[#1C1C1E] rounded-t-[32px] pt-4 px-5 pb-24 shadow-[0_-15px_40px_rgba(0,0,0,0.5)] z-20 relative"
+        >
+           <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
+           
+           <div className="flex justify-between items-end mb-5 px-1 bg-transparent border-0 text-left">
+             <h3 className="text-[19px] font-bold text-white/90">Recent Transaction</h3>
+             <Link to="/history" className="text-[13px] font-semibold text-[#A78BFA] active:opacity-70 transition-opacity">
+               See all
+             </Link>
+           </div>
+           
+           <div className="space-y-3">
+            {tx.map((x) => {
+              const cat = getCategoryConfig(x.category);
+              const Icon = cat.icon;
+              return (
+                <Link to="/history" key={x.id} className="block text-left">
+                  <div className="flex items-center gap-4 bg-[#2C2C2E] p-4 rounded-[20px] active:bg-[#3A3A3C] transition-colors shadow-sm">
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: `${cat.color}20` }}
+                    >
+                      <Icon size={22} color={cat.color} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[16px] truncate text-white/95 mb-0.5">
+                        {x.description || x.category || "—"}
+                      </p>
+                      <p className="text-[12px] font-medium text-white/40 truncate">
+                        {x.source === "monobank" ? "💳" : "💵"} {x.category}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p
+                        className={`font-semibold tabular-nums text-[16px] tracking-tight ${
+                          x.type === "income" ? "text-[#A78BFA]" : "text-white/90"
+                        }`}
+                      >
+                        {x.type === "income" ? "+" : "-"}{formatMoney(x.amount).replace(" ₴", "")}
+                      </p>
+                      {usdRate ? (
+                        <p className="text-[11px] font-medium text-white/40 mt-0.5">
+                          {formatUsdApprox(x.amount, usdRate)}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+            {tx.length === 0 && (
+              <p className="text-center text-sm font-medium text-white/40 py-8">
+                Немає нещодавніх операцій
+              </p>
+            )}
+           </div>
+        </motion.div>
+      </div>
     </div>
   );
 }
