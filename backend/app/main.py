@@ -83,9 +83,10 @@ app.include_router(savings.router, prefix="/api")
 app.include_router(mono.router, prefix="/api")
 
 
-@app.post("/admin/nuke-transactions/{secret}")
-async def nuke_all_transactions(secret: str):
+@app.post("/admin/nuke-transactions")
+async def nuke_all_transactions(request: Request):
     """TEMPORARY: One-time cleanup endpoint. Remove after use."""
+    secret = request.query_params.get("key", "")
     if secret != config.BOT_TOKEN:
         raise HTTPException(403, "Forbidden")
     db = get_db()
