@@ -11,14 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
 from backend.app.deps import telegram_user_id
-from backend.app.routers.goals import _goal_out
 from backend.app.services.periods import (
     financial_month_key_for_date,
     human_period,
     month_window_from_key,
     parse_month_key,
     resolve_pay_day,
-    resolve_pay_day_from_user,
 )
 from bot.db import queries
 from bot.db.mongo import get_db
@@ -36,11 +34,20 @@ def _db() -> AsyncIOMotorDatabase:
 def _tx_out(doc: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(doc["_id"]),
+        "source": doc.get("source", "cash"),
         "type": doc["type"],
         "amount": doc["amount"],
-        "category": doc.get("category"),
-        "comment": doc.get("comment", ""),
-        "created_at": doc["created_at"].isoformat(),
+        "original_amount": doc.get("original_amount"),
+        "currency_code": doc.get("currency_code"),
+        "category": doc.get("category", "Інше"),
+        "mcc": doc.get("mcc"),
+        "description": doc.get("description", ""),
+        "comment": doc.get("comment"),
+        "cashback": doc.get("cashback", 0),
+        "hold": doc.get("hold", False),
+        "date": doc.get("date", doc.get("created_at", "")).isoformat()
+        if hasattr(doc.get("date", doc.get("created_at", "")), "isoformat")
+        else str(doc.get("date", "")),
     }
 
 
@@ -56,68 +63,26 @@ async def balance(
         start, end_excl, month_key = month_window_from_key(month, pd)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    rows = await (
-        db["transactions"]
-        .aggregate(
-            [
-                {
-                    "$match": {
-                        "telegram_id": telegram_id,
-                        "created_at": {"$gte": start, "$lt": end_excl},
-                    }
-                },
-                {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
-            ]
-        )
-        .to_list(length=None)
-    )
-    income = 0.0
-    expense = 0.0
-    for row in rows:
-        if row["_id"] == "income":
-            income = float(row["total"])
-        if row["_id"] == "expense":
-            expense = float(row["total"])
-    balance_val = income - expense
 
-    prev_start = start - timedelta(days=31)
-    prev_key = f"{prev_start.year}-{prev_start.month:02d}"
-    prev_from, prev_to, _ = month_window_from_key(prev_key, pd)
-    prev_rows = await (
-        db["transactions"]
-        .aggregate(
-            [
-                {
-                    "$match": {
-                        "telegram_id": telegram_id,
-                        "type": "expense",
-                        "created_at": {"$gte": prev_from, "$lt": prev_to},
-                    }
-                },
-                {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
-            ]
-        )
-        .to_list(length=None)
-    )
-    prev_expense = float(prev_rows[0]["total"]) if prev_rows else 0.0
+    income, expense = await queries.balance_totals(db, telegram_id, start, end_excl)
 
-    if prev_expense > 0:
-        change = ((expense - prev_expense) / prev_expense) * 100.0
-    elif expense > 0:
-        change = 100.0
-    else:
-        change = 0.0
+    # Get mono balance if connected
+    user = await queries.get_user(db, telegram_id)
+    mono_balance = None
+    if user and user.get("mono_accounts"):
+        default_acc = user.get("default_account")
+        for acc in user["mono_accounts"]:
+            if acc.get("id") == default_acc or (not default_acc and acc.get("currency_code") == 980):
+                mono_balance = acc.get("balance")
+                break
 
     return {
-        "month": month_key,
         "month_key": month_key,
-        "pay_day": pd,
         "period_label": human_period(start, end_excl),
         "income": income,
         "expense": expense,
-        "balance": balance_val,
-        "prev_month_expense": prev_expense,
-        "change_percent": round(change, 1),
+        "balance": income - expense,
+        "mono_balance": mono_balance,
     }
 
 
@@ -127,20 +92,11 @@ async def bootstrap(
     db: AsyncIOMotorDatabase = Depends(_db),
     month: str | None = None,
 ) -> dict[str, Any]:
-    user = await db["users"].find_one(
-        {"telegram_id": telegram_id},
-        {
-            "pay_day": 1,
-            "pay_day_overrides": 1,
-            "default_currency": 1,
-            "budgets": 1,
-        },
-    ) or {}
+    user = await queries.get_user(db, telegram_id) or {}
 
     month_param: str
     if not month or str(month).lower() == "auto":
-        base_pd = max(1, min(28, int(user.get("pay_day", 1))))
-        month_param = financial_month_key_for_date(datetime.now(timezone.utc), base_pd)
+        month_param = financial_month_key_for_date(datetime.now(timezone.utc), 1)
     else:
         month_param = str(month)
         try:
@@ -148,32 +104,21 @@ async def bootstrap(
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 
-    pd = resolve_pay_day_from_user(user, month_param)
+    pd = 1  # simplified: always 1st of month
     try:
         start, end_excl, month_key = month_window_from_key(month_param, pd)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 
-    settings = {
-        "pay_day": int(user.get("pay_day", 1)),
-        "currency": user.get("default_currency", "UAH"),
-        "pay_day_overrides": {
-            k: int(v) for k, v in (user.get("pay_day_overrides") or {}).items()
-        },
-    }
-    budgets_raw = {k: float(v) for k, v in (user.get("budgets") or {}).items()}
-
-    tx_match = {"telegram_id": telegram_id, "created_at": {"$gte": start, "$lt": end_excl}}
+    tx_match = {"telegram_id": telegram_id, "date": {"$gte": start, "$lt": end_excl}}
 
     async def _balance_agg():
         return await (
             db["transactions"]
-            .aggregate(
-                [
-                    {"$match": tx_match},
-                    {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
-                ]
-            )
+            .aggregate([
+                {"$match": tx_match},
+                {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
+            ])
             .to_list(length=None)
         )
 
@@ -181,93 +126,26 @@ async def bootstrap(
         return await (
             db["transactions"]
             .find(tx_match)
-            .sort("created_at", -1)
-            .limit(5)
+            .sort("date", -1)
+            .limit(10)
             .to_list(length=None)
         )
 
-    async def _spent_by_category():
-        return await (
-            db["transactions"]
-            .aggregate(
-                [
-                    {
-                        "$match": {
-                            "telegram_id": telegram_id,
-                            "type": "expense",
-                            "created_at": {"$gte": start, "$lt": end_excl},
-                        }
-                    },
-                    {
-                        "$group": {
-                            "_id": "$category",
-                            "spent": {"$sum": "$amount"},
-                            "transactions_count": {"$sum": 1},
-                        }
-                    },
-                ]
-            )
-            .to_list(length=None)
+    async def _stats():
+        return await queries.get_expense_stats(
+            db, telegram_id, start, end_excl, end_inclusive=False
         )
 
-    async def _savings_history():
-        return await (
-            db["savings"]
-            .find({"telegram_id": telegram_id})
-            .sort("created_at", -1)
-            .to_list(length=120)
+    async def _trend():
+        return await queries.get_daily_expense_series(
+            db, telegram_id, start, end_excl, end_inclusive=False
         )
 
-    async def _savings_by_month():
-        return await (
-            db["savings"]
-            .aggregate(
-                [
-                    {"$match": {"telegram_id": telegram_id}},
-                    {
-                        "$group": {
-                            "_id": {
-                                "$dateToString": {
-                                    "format": "%Y-%m",
-                                    "date": "$created_at",
-                                }
-                            },
-                            "total": {"$sum": "$amount"},
-                        }
-                    },
-                    {"$sort": {"_id": -1}},
-                    {"$limit": 12},
-                ]
-            )
-            .to_list(length=None)
-        )
+    async def _savings_total():
+        return await queries.savings_total(db, telegram_id)
 
-    async def _goals_list():
-        return await (
-            db["goals"]
-            .find({"telegram_id": telegram_id})
-            .sort("created_at", -1)
-            .to_list(length=200)
-        )
-
-    (
-        bal_rows,
-        tx_rows,
-        stats_rows,
-        trend_rows,
-        spent_rows,
-        savings_rows,
-        savings_month_rows,
-        goals_rows,
-    ) = await asyncio.gather(
-        _balance_agg(),
-        _tx_recent(),
-        queries.get_expense_stats(db, telegram_id, start, end_excl, end_inclusive=False),
-        queries.get_daily_expense_series(db, telegram_id, start, end_excl, end_inclusive=False),
-        _spent_by_category(),
-        _savings_history(),
-        _savings_by_month(),
-        _goals_list(),
+    bal_rows, tx_rows, stats_rows, trend_rows, sav_total = await asyncio.gather(
+        _balance_agg(), _tx_recent(), _stats(), _trend(), _savings_total(),
     )
 
     income = 0.0
@@ -277,93 +155,39 @@ async def bootstrap(
             income = float(row["total"])
         if row["_id"] == "expense":
             expense = float(row["total"])
+
+    # Mono balance
+    mono_balance = None
+    if user.get("mono_accounts"):
+        default_acc = user.get("default_account")
+        for acc in user["mono_accounts"]:
+            if acc.get("id") == default_acc or (not default_acc and acc.get("currency_code") == 980):
+                mono_balance = acc.get("balance")
+                break
+
     balance_data = {
-        "month": month_key,
         "month_key": month_key,
-        "pay_day": pd,
         "period_label": human_period(start, end_excl),
         "income": income,
         "expense": expense,
         "balance": income - expense,
-        "prev_month_expense": 0.0,
-        "change_percent": 0.0,
+        "mono_balance": mono_balance,
     }
 
     transactions = {"items": [_tx_out(x) for x in tx_rows], "total": len(tx_rows)}
-
     stats_data = _stats_body("month", stats_rows, start, end_excl)
-    stats_data["month"] = month_key
-    stats_data["pay_day"] = pd
-    stats_data["period_label"] = human_period(start, end_excl)
-    spent_simple = {r["_id"]: float(r["spent"]) for r in spent_rows}
-    bs_total_limit = float(sum(budgets_raw.values())) if budgets_raw else 0.0
-    bs_total_spent = float(sum(spent_simple.get(k, 0.0) for k in budgets_raw.keys()))
-    stats_data["budget_summary"] = {
-        "total_limit": bs_total_limit,
-        "total_spent": bs_total_spent,
-        "total_percent": round((bs_total_spent / bs_total_limit) * 100, 1) if bs_total_limit else 0.0,
-    }
-
     trend_data = {"points": [{"date": r["_id"], "amount": float(r["total"])} for r in trend_rows]}
-    spent_by_cat = {
-        r["_id"]: {"spent": float(r["spent"]), "count": int(r["transactions_count"])}
-        for r in spent_rows
-    }
-    budgets_out = []
-    for category, limit in budgets_raw.items():
-        spent = spent_by_cat.get(category, {}).get("spent", 0.0)
-        tx_count = spent_by_cat.get(category, {}).get("count", 0)
-        percent = (spent / limit) * 100 if limit > 0 else 0.0
-        budgets_out.append(
-            {
-                "category": category,
-                "limit": limit,
-                "spent": spent,
-                "percent": round(percent, 1),
-                "remaining": round(limit - spent, 2),
-                "transactions_count": tx_count,
-            }
-        )
-    total_limit = float(sum(x["limit"] for x in budgets_out)) if budgets_out else 0.0
-    total_spent = float(sum(x["spent"] for x in budgets_out)) if budgets_out else 0.0
-    budgets_data = {
-        "month": month_key,
-        "pay_day": pd,
-        "period_label": human_period(start, end_excl),
-        "budgets": budgets_out,
-        "total_limit": total_limit,
-        "total_spent": total_spent,
-        "total_percent": round((total_spent / total_limit) * 100, 1) if total_limit else 0.0,
-    }
 
-    savings_total = float(sum(float(x["amount"]) for x in savings_rows))
-    savings_data = {
-        "total": savings_total,
-        "monthly_breakdown": [
-            {"month": r["_id"], "amount": float(r["total"])} for r in savings_month_rows
-        ],
-        "history": [
-            {
-                "id": str(x["_id"]),
-                "amount": float(x["amount"]),
-                "comment": x.get("comment", ""),
-                "created_at": x["created_at"].isoformat(),
-            }
-            for x in savings_rows
-        ],
-    }
-    goals_data = {"items": [_goal_out(x) for x in goals_rows]}
+    mono_connected = bool(user.get("mono_token"))
 
     return {
         "month": month_key,
-        "settings": settings,
         "balance": balance_data,
         "transactions": transactions,
         "stats": stats_data,
         "trend": trend_data,
-        "budgets": budgets_data,
-        "savings": savings_data,
-        "goals": goals_data,
+        "savings_total": sav_total,
+        "mono_connected": mono_connected,
     }
 
 
@@ -377,36 +201,26 @@ async def stats(
 ) -> dict:
     if period == "week":
         start, end = queries.period_week()
-        rows = await queries.get_expense_stats(
-            db, telegram_id, start, end, end_inclusive=True
-        )
-        return _stats_body(period, rows, start, end)
-    if period == "month":
+    elif period == "month":
         pd = await resolve_pay_day(db, telegram_id, pay_day, month)
         try:
-            start, end_excl, _month_key = month_window_from_key(month, pd)
+            start, end, _ = month_window_from_key(month, pd)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
-        rows = await queries.get_expense_stats(
-            db, telegram_id, start, end_excl, end_inclusive=False
-        )
-        body = _stats_body(period, rows, start, end_excl)
-        body["month"] = _month_key
-        body["pay_day"] = pd
-        body["period_label"] = human_period(start, end_excl)
-        body["budget_summary"] = await _budget_summary(db, telegram_id, start, end_excl)
-        return body
-    if period == "3months":
+    elif period == "3months":
         start, end = queries.period_three_months()
-        rows = await queries.get_expense_stats(
-            db, telegram_id, start, end, end_inclusive=True
-        )
-        return _stats_body(period, rows, start, end)
-    start, end = queries.period_year()
+    else:
+        start, end = queries.period_year()
+
+    end_inclusive = period != "month"
     rows = await queries.get_expense_stats(
-        db, telegram_id, start, end, end_inclusive=True
+        db, telegram_id, start, end, end_inclusive=end_inclusive
     )
-    return _stats_body(period, rows, start, end)
+    body = _stats_body(period, rows, start, end)
+    if period == "month" and month:
+        body["month"] = month
+        body["period_label"] = human_period(start, end)
+    return body
 
 
 def _stats_body(
@@ -419,17 +233,15 @@ def _stats_body(
     count = sum(int(r["count"]) for r in rows)
     categories_out = []
     for r in rows:
-        name = r["_id"] or "❓ Інше"
+        name = r["_id"] or "Інше"
         amt = float(r["total"])
         pct = (amt / total * 100.0) if total else 0.0
-        categories_out.append(
-            {
-                "name": name,
-                "amount": amt,
-                "percent": round(pct, 1),
-                "count": int(r["count"]),
-            }
-        )
+        categories_out.append({
+            "name": name,
+            "amount": amt,
+            "percent": round(pct, 1),
+            "count": int(r["count"]),
+        })
     return {
         "period": period,
         "total": total,
@@ -471,79 +283,28 @@ async def stats_trend(
 async def export_csv(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
-    month: str | None = None,
-    pay_day: int | None = Query(None, ge=1, le=28),
 ) -> PlainTextResponse:
-    if month:
-        pd = await resolve_pay_day(db, telegram_id, pay_day, month)
-        try:
-            start, end_excl, _ = month_window_from_key(month, pd)
-        except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
-        rows = await (
-            db["transactions"]
-            .find({"telegram_id": telegram_id, "created_at": {"$gte": start, "$lt": end_excl}})
-            .sort("created_at", -1)
-            .to_list(length=None)
-        )
-    else:
-        rows = await queries.export_transactions_csv_rows(db, telegram_id)
+    rows = await queries.export_transactions_csv_rows(db, telegram_id)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["created_at", "type", "amount", "category", "comment"])
+    w.writerow(["date", "type", "source", "amount", "category", "mcc", "description", "comment"])
     for r in rows:
-        w.writerow(
-            [
-                r.get("created_at", "").isoformat()
-                if hasattr(r.get("created_at"), "isoformat")
-                else r.get("created_at"),
-                r.get("type"),
-                r.get("amount"),
-                r.get("category"),
-                r.get("comment"),
-            ]
-        )
+        d = r.get("date") or r.get("created_at")
+        w.writerow([
+            d.isoformat() if hasattr(d, "isoformat") else str(d),
+            r.get("type"),
+            r.get("source", "cash"),
+            r.get("amount"),
+            r.get("category"),
+            r.get("mcc"),
+            r.get("description"),
+            r.get("comment"),
+        ])
     return PlainTextResponse(
         buf.getvalue(),
         media_type="text/csv",
-        headers={
-            "Content-Disposition": 'attachment; filename="transactions.csv"',
-        },
+        headers={"Content-Disposition": 'attachment; filename="transactions.csv"'},
     )
-
-
-async def _budget_summary(
-    db: AsyncIOMotorDatabase,
-    telegram_id: int,
-    start: datetime,
-    end_excl: datetime,
-) -> dict[str, Any]:
-    user = await db["users"].find_one({"telegram_id": telegram_id}, {"budgets": 1})
-    budgets = ((user or {}).get("budgets") or {}).copy()
-    total_limit = float(sum(float(v) for v in budgets.values())) if budgets else 0.0
-    spent_rows = await (
-        db["transactions"]
-        .aggregate(
-            [
-                {
-                    "$match": {
-                        "telegram_id": telegram_id,
-                        "type": "expense",
-                        "created_at": {"$gte": start, "$lt": end_excl},
-                    }
-                },
-                {"$group": {"_id": "$category", "spent": {"$sum": "$amount"}}},
-            ]
-        )
-        .to_list(length=None)
-    )
-    spent_by_cat = {r["_id"]: float(r["spent"]) for r in spent_rows}
-    total_spent = float(sum(spent_by_cat.get(k, 0.0) for k in budgets.keys()))
-    return {
-        "total_limit": total_limit,
-        "total_spent": total_spent,
-        "total_percent": round((total_spent / total_limit) * 100, 1) if total_limit else 0.0,
-    }
 
 
 @router.get("/fx/usd-uah")

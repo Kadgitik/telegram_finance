@@ -4,8 +4,7 @@ from __future__ import annotations
 from aiogram import Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.handlers import balance, budgets, categories, charts, export, help as help_h
-from bot.handlers import history, start, stats, transactions
+from bot.handlers import balance, export, help as help_h, history, start, stats
 from bot.middlewares.db import DbMiddleware
 
 
@@ -18,11 +17,7 @@ def build_dispatcher() -> Dispatcher:
         balance.router,
         stats.router,
         history.router,
-        categories.router,
-        budgets.router,
         export.router,
-        charts.router,
-        transactions.router,
     ):
         dp.include_router(r)
     return dp

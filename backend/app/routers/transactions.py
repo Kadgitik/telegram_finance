@@ -8,7 +8,7 @@ from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.deps import telegram_user_id
-from backend.app.models.schemas import TransactionCreate, TransactionUpdate
+from backend.app.models.schemas import TransactionCreate
 from backend.app.services.periods import month_window_from_key, resolve_pay_day
 from bot.db import queries
 from bot.db.mongo import get_db
@@ -24,11 +24,20 @@ def _db() -> AsyncIOMotorDatabase:
 def _tx_out(doc: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(doc["_id"]),
+        "source": doc.get("source", "cash"),
         "type": doc["type"],
         "amount": doc["amount"],
-        "category": doc.get("category"),
-        "comment": doc.get("comment", ""),
-        "created_at": doc["created_at"].isoformat(),
+        "original_amount": doc.get("original_amount"),
+        "currency_code": doc.get("currency_code"),
+        "category": doc.get("category", "Інше"),
+        "mcc": doc.get("mcc"),
+        "description": doc.get("description", ""),
+        "comment": doc.get("comment"),
+        "cashback": doc.get("cashback", 0),
+        "hold": doc.get("hold", False),
+        "date": doc.get("date", doc.get("created_at", "")).isoformat()
+        if hasattr(doc.get("date", doc.get("created_at", "")), "isoformat")
+        else str(doc.get("date", "")),
     }
 
 
@@ -38,29 +47,31 @@ async def create_transaction(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, Any]:
-    # Idempotency guard: if user double-taps save, avoid inserting duplicate tx.
+    """Add a manual (cash) transaction."""
+    # Idempotency: skip if same tx within 3 seconds
     now = datetime.now(timezone.utc)
-    recent_duplicate = await db["transactions"].find_one(
+    recent = await db["transactions"].find_one(
         {
             "telegram_id": telegram_id,
+            "source": "cash",
             "type": body.type,
             "amount": float(body.amount),
             "category": body.category,
-            "comment": body.comment.strip(),
             "created_at": {"$gte": now - timedelta(seconds=3)},
         },
         sort=[("created_at", -1)],
     )
-    if recent_duplicate:
-        return _tx_out(recent_duplicate)
+    if recent:
+        return _tx_out(recent)
 
     oid = await queries.add_transaction(
-        db,
-        telegram_id,
-        body.type,
-        body.amount,
-        body.category,
-        body.comment,
+        db, telegram_id,
+        source="cash",
+        type_=body.type,
+        amount=body.amount,
+        category=body.category,
+        description=body.description,
+        comment=body.comment or None,
     )
     doc = await queries.get_transaction(db, telegram_id, oid)
     assert doc
@@ -73,41 +84,36 @@ async def list_transactions(
     db: AsyncIOMotorDatabase = Depends(_db),
     tx_type: str | None = Query(None, alias="type"),
     category: str | None = None,
+    source: str | None = None,
     month: str | None = None,
-    year: int | None = None,
     pay_day: int | None = Query(None, ge=1, le=28),
     search: str | None = None,
     offset: int = 0,
     limit: int = 20,
 ) -> dict[str, Any]:
     type_ = tx_type if tx_type in ("expense", "income") else None
-    q: dict[str, Any] = {"telegram_id": telegram_id}
-    if type_:
-        q["type"] = type_
-    if category:
-        q["category"] = category
+    src = source if source in ("monobank", "cash") else None
+
+    start_dt = None
+    end_dt = None
     if month:
         pd = await resolve_pay_day(db, telegram_id, pay_day, month)
         try:
-            start, end_excl, _ = month_window_from_key(month, pd)
+            start_dt, end_dt, _ = month_window_from_key(month, pd)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
-        q["created_at"] = {"$gte": start, "$lt": end_excl}
-    elif year is not None and month is None:
-        # legacy fallback: year only without month key is ignored
-        pass
-    if search and search.strip():
-        rx = {"$regex": search.strip(), "$options": "i"}
-        q["$or"] = [{"comment": rx}, {"category": rx}]
-    cur = (
-        db["transactions"]
-        .find(q)
-        .sort("created_at", -1)
-        .skip(max(0, offset))
-        .limit(min(100, max(1, limit)))
+
+    items = await queries.list_transactions(
+        db, telegram_id,
+        type_=type_, category=category, source=src,
+        start=start_dt, end=end_dt, search=search,
+        skip=offset, limit=limit,
     )
-    items = await cur.to_list(length=None)
-    total = await db["transactions"].count_documents(q)
+    total = await queries.count_transactions(
+        db, telegram_id,
+        type_=type_, category=category, source=src,
+        start=start_dt, end=end_dt, search=search,
+    )
     return {"items": [_tx_out(x) for x in items], "total": total}
 
 
@@ -125,32 +131,3 @@ async def delete_transaction(
     if not ok:
         raise HTTPException(404, "Не знайдено")
     return {"ok": True}
-
-
-@router.patch("/transactions/{tx_id}")
-async def patch_transaction(
-    tx_id: str,
-    body: TransactionUpdate,
-    telegram_id: int = Depends(telegram_user_id),
-    db: AsyncIOMotorDatabase = Depends(_db),
-) -> dict[str, Any]:
-    try:
-        oid = ObjectId(tx_id)
-    except InvalidId as e:
-        raise HTTPException(400, "Невірний id") from e
-    ok = await queries.update_transaction_fields(
-        db,
-        telegram_id,
-        oid,
-        type_=body.type,
-        amount=body.amount,
-        category=body.category,
-        comment=body.comment,
-    )
-    if not ok:
-        doc = await queries.get_transaction(db, telegram_id, oid)
-        if not doc:
-            raise HTTPException(404, "Не знайдено")
-    doc = await queries.get_transaction(db, telegram_id, oid)
-    assert doc
-    return _tx_out(doc)

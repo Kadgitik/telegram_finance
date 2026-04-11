@@ -1,127 +1,185 @@
+import { Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import { useFxRate } from "../hooks/useFxRate";
+import MonthSwitcher from "../components/MonthSwitcher";
+import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
-import { formatDayLabel, formatMoney, formatTime, formatUsdApprox } from "../utils/formatters";
 import { useStoredMonth } from "../context/MonthContext";
+import { formatDayLabel, formatMoney, formatTime } from "../utils/formatters";
+import { getCategoryConfig } from "../utils/constants";
 
 export default function HistoryPage() {
-  const [params] = useSearchParams();
-  const categoryFromQuery = params.get("category") || "";
   const { initData } = useTelegram();
-  const [filter, setFilter] = useState("all");
-  const [search, setSearch] = useState(categoryFromQuery);
+  const h = useHaptic();
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [month] = useStoredMonth();
-  const usdRate = useFxRate();
+  const [total, setTotal] = useState(0);
+  const [month, setStoredMonth] = useStoredMonth();
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 30;
 
-  const load = async () => {
+  const load = async (reset = false) => {
     if (!initData) return;
-    setLoading(true);
-    try {
-      let q = `/transactions?limit=50&month=${month}`;
-      if (filter === "expense") q += "&type=expense";
-      if (filter === "income") q += "&type=income";
-      if (search.trim()) q += "&search=" + encodeURIComponent(search.trim());
-      if (categoryFromQuery) q += "&category=" + encodeURIComponent(categoryFromQuery);
-      const cached = api.getCached(q, initData);
-      if (cached?.items) setItems(cached.items || []);
-      const r = await api.get(q, initData);
+    const off = reset ? 0 : offset;
+    const params = new URLSearchParams({
+      month,
+      offset: String(off),
+      limit: String(LIMIT),
+    });
+    if (filter !== "all") params.set("type", filter);
+    if (search.trim()) params.set("search", search.trim());
+
+    const r = await api.get(`/transactions?${params}`, initData);
+    if (reset) {
       setItems(r.items || []);
-    } finally {
-      setLoading(false);
+      setOffset(LIMIT);
+    } else {
+      setItems((prev) => [...prev, ...(r.items || [])]);
+      setOffset(off + LIMIT);
     }
+    setTotal(r.total || 0);
   };
 
   useEffect(() => {
-    load();
-  }, [initData, filter, month, categoryFromQuery]);
+    load(true).catch(() => {});
+  }, [initData, month, filter, search]);
 
-  const grouped = () => {
-    const m = new Map();
-    for (const x of items) {
-      const day = formatDayLabel(x.created_at);
-      if (!m.has(day)) m.set(day, []);
-      m.get(day).push(x);
+  const handleDelete = async (id) => {
+    if (!initData) return;
+    try {
+      await api.delete(`/transactions/${id}`, initData);
+      setItems((prev) => prev.filter((x) => x.id !== id));
+      setTotal((t) => t - 1);
+      h.success();
+    } catch {
+      h.error();
     }
-    return [...m.entries()];
   };
 
-  const remove = async (id) => {
-    if (!initData || !confirm("Видалити?")) return;
-    await api.delete(`/transactions/${id}`, initData);
-    load();
-  };
+  const grouped = {};
+  for (const tx of items) {
+    const day = tx.date?.slice(0, 10) || "unknown";
+    if (!grouped[day]) grouped[day] = [];
+    grouped[day].push(tx);
+  }
+  const days = Object.keys(grouped).sort().reverse();
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto">
-      <h1 className="text-xl font-bold mb-4">Історія</h1>
-      <div className="flex rounded-xl bg-[var(--app-secondary)] p-1 mb-3">
+      <div className="flex items-center justify-between mb-3">
+        <h1 className="text-xl font-bold">Історія</h1>
+        <button
+          type="button"
+          onClick={() => setShowSearch(!showSearch)}
+          className="p-2 rounded-lg bg-[var(--app-secondary)]"
+        >
+          <Search size={16} />
+        </button>
+      </div>
+
+      {showSearch && (
+        <input
+          className="w-full rounded-xl px-3 py-2.5 mb-3 bg-[var(--app-secondary)] border border-white/10 placeholder:text-[var(--app-hint)] text-sm"
+          placeholder="Пошук..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoFocus
+        />
+      )}
+
+      <MonthSwitcher month={month} onChange={setStoredMonth} />
+
+      <div className="flex gap-2 mb-4 mt-3">
         {[
-          ["all", "Все"],
+          ["all", "Усі"],
           ["expense", "Витрати"],
           ["income", "Доходи"],
         ].map(([k, lab]) => (
           <button
             type="button"
             key={k}
-            className={`flex-1 py-2 rounded-lg text-sm ${
-              filter === k ? "bg-[var(--app-button)]/30" : ""
-            }`}
             onClick={() => setFilter(k)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+              filter === k
+                ? "bg-[var(--app-button)] text-[var(--tg-theme-button-text-color,white)]"
+                : "bg-[var(--app-secondary)]"
+            }`}
           >
             {lab}
           </button>
         ))}
       </div>
-      <input
-        className="w-full mb-4 rounded-xl px-3 py-2 bg-[var(--app-secondary)]"
-        placeholder="🔍 Пошук..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && load()}
-      />
-      {loading && <p className="text-sm text-[var(--app-hint)]">Завантаження…</p>}
-      {grouped().map(([day, rows]) => (
+
+      <p className="text-xs text-[var(--app-hint)] mb-3">{total} операцій</p>
+
+      {days.map((day) => (
         <div key={day} className="mb-4">
-          <p className="text-xs text-[var(--app-hint)] mb-1">{day}</p>
+          <p className="text-xs text-[var(--app-hint)] mb-1.5 font-medium">{formatDayLabel(day)}</p>
           <ul className="space-y-1">
-            {rows.map((x) => (
-              <li
-                key={x.id}
-                className="flex items-center justify-between rounded-xl bg-[var(--app-secondary)] px-3 py-2"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm">{x.category}</p>
-                  <p className="text-xs text-[var(--app-hint)]">
-                    {x.comment} · {formatTime(x.created_at)}
-                  </p>
-                </div>
-                <span
-                  className={
-                    x.type === "income" ? "text-green-400" : "text-[var(--app-text)]"
-                  }
+            {grouped[day].map((x) => {
+              const cat = getCategoryConfig(x.category);
+              const Icon = cat.icon;
+              return (
+                <li
+                  key={x.id}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-[var(--app-secondary)]"
                 >
-                  {x.type === "income" ? "+" : "-"}
-                  {formatMoney(x.amount)}
-                  <span className="block text-[10px] text-[var(--app-hint)] text-right">
-                    {formatUsdApprox(x.amount, usdRate)}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="ml-2 text-red-400 text-xs"
-                  onClick={() => remove(x.id)}
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${cat.color}20` }}
+                  >
+                    <Icon size={18} color={cat.color} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {x.description || x.category}
+                    </p>
+                    <p className="text-xs text-[var(--app-hint)] truncate">
+                      {x.source === "monobank" ? "\uD83D\uDCB3" : "\uD83D\uDCB5"} {x.category} · {formatTime(x.date)}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p
+                      className={`text-sm font-medium tabular-nums ${
+                        x.type === "income" ? "text-green-400" : "text-[var(--app-text)]"
+                      }`}
+                    >
+                      {x.type === "income" ? "+" : "-"}{formatMoney(x.amount)}
+                    </p>
+                  </div>
+                  {x.source === "cash" && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(x.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-500/20 shrink-0"
+                    >
+                      <Trash2 size={14} className="text-[var(--app-hint)]" />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}
+
+      {items.length < total && (
+        <button
+          type="button"
+          onClick={() => load(false)}
+          className="w-full py-2.5 rounded-xl bg-[var(--app-secondary)] text-sm text-[var(--app-hint)]"
+        >
+          Завантажити ще
+        </button>
+      )}
+
+      {items.length === 0 && (
+        <p className="text-center text-sm text-[var(--app-hint)] py-12">
+          Немає операцій
+        </p>
+      )}
     </div>
   );
 }

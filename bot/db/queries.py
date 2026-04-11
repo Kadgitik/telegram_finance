@@ -15,6 +15,8 @@ from bot.db.pipelines import (
 )
 
 
+# ── Users ──────────────────────────────────────────────────────────────
+
 async def upsert_user(
     db: AsyncIOMotorDatabase,
     telegram_id: int,
@@ -32,9 +34,11 @@ async def upsert_user(
             },
             "$setOnInsert": {
                 "telegram_id": telegram_id,
-                "default_currency": "UAH",
-                "custom_categories": [],
-                "budgets": {},
+                "mono_token": None,
+                "mono_client_id": None,
+                "mono_accounts": [],
+                "mono_webhook_set": False,
+                "default_account": None,
                 "created_at": now,
             },
         },
@@ -46,24 +50,124 @@ async def get_user(db: AsyncIOMotorDatabase, telegram_id: int) -> dict[str, Any]
     return await db["users"].find_one({"telegram_id": telegram_id})
 
 
+async def set_mono_token(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    token: str,
+    client_id: str | None = None,
+    accounts: list | None = None,
+) -> None:
+    update: dict[str, Any] = {
+        "mono_token": token,
+        "updated_at": datetime.now(timezone.utc),
+    }
+    if client_id is not None:
+        update["mono_client_id"] = client_id
+    if accounts is not None:
+        update["mono_accounts"] = accounts
+    await db["users"].update_one(
+        {"telegram_id": telegram_id},
+        {"$set": update},
+    )
+
+
+async def set_mono_webhook_status(
+    db: AsyncIOMotorDatabase, telegram_id: int, status: bool
+) -> None:
+    await db["users"].update_one(
+        {"telegram_id": telegram_id},
+        {"$set": {"mono_webhook_set": status, "updated_at": datetime.now(timezone.utc)}},
+    )
+
+
+async def set_default_account(
+    db: AsyncIOMotorDatabase, telegram_id: int, account_id: str
+) -> None:
+    await db["users"].update_one(
+        {"telegram_id": telegram_id},
+        {"$set": {"default_account": account_id, "updated_at": datetime.now(timezone.utc)}},
+    )
+
+
+async def disconnect_mono(db: AsyncIOMotorDatabase, telegram_id: int) -> None:
+    await db["users"].update_one(
+        {"telegram_id": telegram_id},
+        {
+            "$set": {
+                "mono_token": None,
+                "mono_client_id": None,
+                "mono_accounts": [],
+                "mono_webhook_set": False,
+                "default_account": None,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        },
+    )
+
+
+# ── Transactions ───────────────────────────────────────────────────────
+
 async def add_transaction(
     db: AsyncIOMotorDatabase,
     telegram_id: int,
+    *,
+    source: str,
     type_: str,
     amount: float,
-    category: str | None,
-    comment: str,
+    category: str,
+    description: str = "",
+    comment: str | None = None,
+    mono_id: str | None = None,
+    original_amount: float | None = None,
+    currency_code: int | None = None,
+    mcc: int | None = None,
+    cashback: float = 0.0,
+    balance_after: float | None = None,
+    hold: bool = False,
+    date: datetime | None = None,
 ) -> ObjectId:
     doc = {
         "telegram_id": telegram_id,
+        "source": source,
+        "mono_id": mono_id,
         "type": type_,
         "amount": float(amount),
+        "original_amount": original_amount,
+        "currency_code": currency_code,
         "category": category,
-        "comment": comment.strip(),
+        "mcc": mcc,
+        "description": description.strip() if description else "",
+        "comment": comment.strip() if comment else None,
+        "cashback": cashback,
+        "balance_after": balance_after,
+        "hold": hold,
+        "date": date or datetime.now(timezone.utc),
         "created_at": datetime.now(timezone.utc),
     }
     r = await db["transactions"].insert_one(doc)
     return r.inserted_id
+
+
+async def upsert_mono_transaction(
+    db: AsyncIOMotorDatabase, doc: dict[str, Any]
+) -> bool:
+    """Insert or update a Monobank transaction. Returns True if new."""
+    existing = await db["transactions"].find_one({
+        "telegram_id": doc["telegram_id"],
+        "mono_id": doc["mono_id"],
+    })
+    if existing:
+        await db["transactions"].update_one(
+            {"_id": existing["_id"]},
+            {"$set": {
+                "hold": doc["hold"],
+                "balance_after": doc["balance_after"],
+                "amount": doc["amount"],
+            }},
+        )
+        return False
+    await db["transactions"].insert_one(doc)
+    return True
 
 
 async def get_transaction(
@@ -79,31 +183,75 @@ async def delete_transaction(
     return r.deleted_count > 0
 
 
-async def update_transaction_category(
-    db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId, category: str
-) -> bool:
-    r = await db["transactions"].update_one(
-        {"telegram_id": telegram_id, "_id": oid},
-        {"$set": {"category": category}},
+async def list_transactions(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    *,
+    type_: str | None = None,
+    category: str | None = None,
+    source: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    search: str | None = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    q: dict[str, Any] = {"telegram_id": telegram_id}
+    if type_ in ("expense", "income"):
+        q["type"] = type_
+    if category:
+        q["category"] = category
+    if source in ("monobank", "cash"):
+        q["source"] = source
+    if start or end:
+        date_q: dict[str, Any] = {}
+        if start:
+            date_q["$gte"] = start
+        if end:
+            date_q["$lt"] = end
+        q["date"] = date_q
+    if search and search.strip():
+        rx = {"$regex": search.strip(), "$options": "i"}
+        q["$or"] = [{"description": rx}, {"comment": rx}, {"category": rx}]
+    cur = (
+        db["transactions"]
+        .find(q)
+        .sort("date", -1)
+        .skip(max(0, skip))
+        .limit(min(100, max(1, limit)))
     )
-    return r.modified_count > 0
+    return await cur.to_list(length=None)
 
 
-async def balance_totals_month(
-    db: AsyncIOMotorDatabase, telegram_id: int, year: int, month: int
-) -> tuple[float, float]:
-    cur = db["transactions"].aggregate(
-        pipeline_balance_month(telegram_id, year, month)
-    )
-    rows = await cur.to_list(length=None)
-    income = 0.0
-    expense = 0.0
-    for row in rows:
-        if row["_id"] == "income":
-            income = float(row["total"])
-        elif row["_id"] == "expense":
-            expense = float(row["total"])
-    return income, expense
+async def count_transactions(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    *,
+    type_: str | None = None,
+    category: str | None = None,
+    source: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    search: str | None = None,
+) -> int:
+    q: dict[str, Any] = {"telegram_id": telegram_id}
+    if type_ in ("expense", "income"):
+        q["type"] = type_
+    if category:
+        q["category"] = category
+    if source in ("monobank", "cash"):
+        q["source"] = source
+    if start or end:
+        date_q: dict[str, Any] = {}
+        if start:
+            date_q["$gte"] = start
+        if end:
+            date_q["$lt"] = end
+        q["date"] = date_q
+    if search and search.strip():
+        rx = {"$regex": search.strip(), "$options": "i"}
+        q["$or"] = [{"description": rx}, {"comment": rx}, {"category": rx}]
+    return await db["transactions"].count_documents(q)
 
 
 async def get_expense_stats(
@@ -122,185 +270,6 @@ async def get_expense_stats(
     return await cur.to_list(length=None)
 
 
-async def get_history_page(
-    db: AsyncIOMotorDatabase,
-    telegram_id: int,
-    skip: int,
-    limit: int,
-) -> list[dict[str, Any]]:
-    cur = (
-        db["transactions"]
-        .find({"telegram_id": telegram_id})
-        .sort("created_at", -1)
-        .skip(skip)
-        .limit(limit)
-    )
-    return await cur.to_list(length=None)
-
-
-async def count_transactions(db: AsyncIOMotorDatabase, telegram_id: int) -> int:
-    return await db["transactions"].count_documents({"telegram_id": telegram_id})
-
-
-async def list_transactions(
-    db: AsyncIOMotorDatabase,
-    telegram_id: int,
-    *,
-    type_: str | None = None,
-    category: str | None = None,
-    year: int | None = None,
-    month: int | None = None,
-    search: str | None = None,
-    skip: int = 0,
-    limit: int = 20,
-) -> list[dict[str, Any]]:
-    q: dict[str, Any] = {"telegram_id": telegram_id}
-    if type_ in ("expense", "income"):
-        q["type"] = type_
-    if category:
-        q["category"] = category
-    if year is not None and month is not None:
-        start, end_excl = month_range_utc(year, month)
-        q["created_at"] = {"$gte": start, "$lt": end_excl}
-    if search and search.strip():
-        rx = {"$regex": search.strip(), "$options": "i"}
-        q["$or"] = [{"comment": rx}, {"category": rx}]
-    cur = (
-        db["transactions"]
-        .find(q)
-        .sort("created_at", -1)
-        .skip(max(0, skip))
-        .limit(min(100, max(1, limit)))
-    )
-    return await cur.to_list(length=None)
-
-
-async def count_transactions_filtered(
-    db: AsyncIOMotorDatabase,
-    telegram_id: int,
-    *,
-    type_: str | None = None,
-    category: str | None = None,
-    year: int | None = None,
-    month: int | None = None,
-    search: str | None = None,
-) -> int:
-    q: dict[str, Any] = {"telegram_id": telegram_id}
-    if type_ in ("expense", "income"):
-        q["type"] = type_
-    if category:
-        q["category"] = category
-    if year is not None and month is not None:
-        start, end_excl = month_range_utc(year, month)
-        q["created_at"] = {"$gte": start, "$lt": end_excl}
-    if search and search.strip():
-        rx = {"$regex": search.strip(), "$options": "i"}
-        q["$or"] = [{"comment": rx}, {"category": rx}]
-    return await db["transactions"].count_documents(q)
-
-
-async def update_transaction_fields(
-    db: AsyncIOMotorDatabase,
-    telegram_id: int,
-    oid: ObjectId,
-    *,
-    type_: str | None = None,
-    amount: float | None = None,
-    category: str | None = None,
-    comment: str | None = None,
-) -> bool:
-    patch: dict[str, Any] = {}
-    if type_ in ("expense", "income"):
-        patch["type"] = type_
-    if amount is not None:
-        patch["amount"] = float(amount)
-    if category is not None:
-        patch["category"] = category
-    if comment is not None:
-        patch["comment"] = comment.strip()
-    if not patch:
-        return False
-    patch["updated_at"] = datetime.now(timezone.utc)
-    r = await db["transactions"].update_one(
-        {"telegram_id": telegram_id, "_id": oid},
-        {"$set": patch},
-    )
-    return r.modified_count > 0
-
-
-async def remove_budget(
-    db: AsyncIOMotorDatabase, telegram_id: int, category_label: str
-) -> None:
-    await db["users"].update_one(
-        {"telegram_id": telegram_id},
-        {
-            "$unset": {f"budgets.{category_label}": ""},
-            "$set": {"updated_at": datetime.now(timezone.utc)},
-        },
-    )
-
-
-async def add_custom_category(
-    db: AsyncIOMotorDatabase, telegram_id: int, category_label: str
-) -> None:
-    now = datetime.now(timezone.utc)
-    await db["users"].update_one(
-        {"telegram_id": telegram_id},
-        {
-            "$addToSet": {"custom_categories": category_label},
-            "$set": {"updated_at": now},
-            "$setOnInsert": {
-                "telegram_id": telegram_id,
-                "default_currency": "UAH",
-                "budgets": {},
-                "created_at": now,
-            },
-        },
-        upsert=True,
-    )
-
-
-async def remove_custom_category(
-    db: AsyncIOMotorDatabase, telegram_id: int, category_label: str
-) -> None:
-    await db["users"].update_one(
-        {"telegram_id": telegram_id},
-        {
-            "$pull": {"custom_categories": category_label},
-            "$set": {"updated_at": datetime.now(timezone.utc)},
-        },
-    )
-
-
-async def set_budget(
-    db: AsyncIOMotorDatabase, telegram_id: int, category: str, amount: float
-) -> None:
-    now = datetime.now(timezone.utc)
-    await db["users"].update_one(
-        {"telegram_id": telegram_id},
-        {
-            "$set": {
-                f"budgets.{category}": float(amount),
-                "updated_at": now,
-            },
-            "$setOnInsert": {
-                "telegram_id": telegram_id,
-                "default_currency": "UAH",
-                "custom_categories": [],
-                "created_at": now,
-            },
-        },
-        upsert=True,
-    )
-
-
-async def export_transactions_csv_rows(
-    db: AsyncIOMotorDatabase, telegram_id: int
-) -> list[dict[str, Any]]:
-    cur = db["transactions"].find({"telegram_id": telegram_id}).sort("created_at", -1)
-    return await cur.to_list(length=None)
-
-
 async def get_daily_expense_series(
     db: AsyncIOMotorDatabase,
     telegram_id: int,
@@ -316,6 +285,86 @@ async def get_daily_expense_series(
     )
     return await cur.to_list(length=None)
 
+
+async def balance_totals(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    start: datetime,
+    end_excl: datetime,
+) -> tuple[float, float]:
+    cur = db["transactions"].aggregate(
+        pipeline_balance_month(telegram_id, start, end_excl)
+    )
+    rows = await cur.to_list(length=None)
+    income = 0.0
+    expense = 0.0
+    for row in rows:
+        if row["_id"] == "income":
+            income = float(row["total"])
+        elif row["_id"] == "expense":
+            expense = float(row["total"])
+    return income, expense
+
+
+# ── Savings ────────────────────────────────────────────────────────────
+
+async def add_saving(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    amount: float,
+    comment: str = "",
+) -> ObjectId:
+    doc = {
+        "telegram_id": telegram_id,
+        "amount": float(amount),
+        "comment": comment.strip(),
+        "created_at": datetime.now(timezone.utc),
+    }
+    r = await db["savings"].insert_one(doc)
+    return r.inserted_id
+
+
+async def list_savings(
+    db: AsyncIOMotorDatabase, telegram_id: int, limit: int = 100
+) -> list[dict[str, Any]]:
+    cur = (
+        db["savings"]
+        .find({"telegram_id": telegram_id})
+        .sort("created_at", -1)
+        .limit(limit)
+    )
+    return await cur.to_list(length=None)
+
+
+async def savings_total(db: AsyncIOMotorDatabase, telegram_id: int) -> float:
+    rows = await (
+        db["savings"]
+        .aggregate([
+            {"$match": {"telegram_id": telegram_id}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+        ])
+        .to_list(length=1)
+    )
+    return float(rows[0]["total"]) if rows else 0.0
+
+
+async def delete_saving(
+    db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId
+) -> bool:
+    r = await db["savings"].delete_one({"_id": oid, "telegram_id": telegram_id})
+    return r.deleted_count > 0
+
+
+# ── Export ─────────────────────────────────────────────────────────────
+
+async def export_transactions_csv_rows(
+    db: AsyncIOMotorDatabase, telegram_id: int
+) -> list[dict[str, Any]]:
+    cur = db["transactions"].find({"telegram_id": telegram_id}).sort("date", -1)
+    return await cur.to_list(length=None)
+
+
+# ── Helpers ────────────────────────────────────────────────────────────
 
 def period_week() -> tuple[datetime, datetime]:
     end = datetime.now(timezone.utc)

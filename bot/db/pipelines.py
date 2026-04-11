@@ -13,13 +13,16 @@ def month_range_utc(year: int, month: int) -> tuple[datetime, datetime]:
     return start, end_excl
 
 
-def pipeline_balance_month(telegram_id: int, year: int, month: int) -> list[dict[str, Any]]:
-    start, end_excl = month_range_utc(year, month)
+def pipeline_balance_month(
+    telegram_id: int,
+    start: datetime,
+    end_excl: datetime,
+) -> list[dict[str, Any]]:
     return [
         {
             "$match": {
                 "telegram_id": telegram_id,
-                "created_at": {"$gte": start, "$lt": end_excl},
+                "date": {"$gte": start, "$lt": end_excl},
             }
         },
         {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
@@ -40,7 +43,7 @@ def pipeline_stats_expense_by_category(
             "$match": {
                 "telegram_id": telegram_id,
                 "type": "expense",
-                "created_at": bound,
+                "date": bound,
             }
         },
         {"$group": {"_id": "$category", "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
@@ -62,13 +65,13 @@ def pipeline_daily_expense_totals(
             "$match": {
                 "telegram_id": telegram_id,
                 "type": "expense",
-                "created_at": bound,
+                "date": bound,
             }
         },
         {
             "$group": {
                 "_id": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"},
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$date"},
                 },
                 "total": {"$sum": "$amount"},
             }

@@ -2,6 +2,7 @@
 .env.local
 .env.*.local
 .cursor/
+.claude/
 .venv/
 venv/
 __pycache__/

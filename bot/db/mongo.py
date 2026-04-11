@@ -28,10 +28,16 @@ async def close_client() -> None:
 async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     users = db["users"]
     await users.create_index("telegram_id", unique=True)
+
     tx = db["transactions"]
-    await tx.create_index([("telegram_id", 1), ("created_at", -1)])
-    await tx.create_index([("telegram_id", 1), ("type", 1), ("created_at", -1)])
+    await tx.create_index([("telegram_id", 1), ("date", -1)])
+    await tx.create_index([("telegram_id", 1), ("type", 1), ("date", -1)])
+    await tx.create_index(
+        [("telegram_id", 1), ("mono_id", 1)],
+        unique=True,
+        sparse=True,
+        name="unique_mono_tx",
+    )
+
     savings = db["savings"]
     await savings.create_index([("telegram_id", 1), ("created_at", -1)])
-    goals = db["goals"]
-    await goals.create_index([("telegram_id", 1), ("created_at", -1)])

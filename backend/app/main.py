@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.app.routers import budgets, categories, goals, savings, stats, transactions, users
+from backend.app.routers import mono, savings, stats, transactions
 from bot import config
 from bot.db.mongo import close_client, ensure_indexes, get_client, get_db
 from bot.dispatcher_factory import build_dispatcher
@@ -45,15 +45,7 @@ async def lifespan(app: FastAPI):
             getattr(info, "pending_update_count", None),
             getattr(info, "last_error_message", None) or "none",
         )
-        if info.url and info.url != wh_url:
-            _LOGGER.warning(
-                "Невідповідність: Telegram webhook URL у API = %s (очікувалось %s). "
-                "Перевір BOT_TOKEN і зроби redeploy після оновлення WEBHOOK_URL.",
-                info.url,
-                wh_url,
-            )
     except Exception as exc:
-        # Do not block app startup if Telegram API is temporarily unavailable.
         _LOGGER.exception("Webhook setup failed, app will still start: %s", exc)
     yield
     try:
@@ -70,11 +62,8 @@ app = FastAPI(
 
 app.include_router(transactions.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
-app.include_router(categories.router, prefix="/api")
-app.include_router(budgets.router, prefix="/api")
-app.include_router(users.router, prefix="/api")
 app.include_router(savings.router, prefix="/api")
-app.include_router(goals.router, prefix="/api")
+app.include_router(mono.router, prefix="/api")
 
 
 @app.get("/health")
@@ -86,14 +75,12 @@ async def health():
 @app.get("/health/live")
 @app.head("/health/live")
 async def health_live():
-    # Lightweight liveness probe for pingers (UptimeRobot, cron-job.org, etc.).
     return {"status": "ok", "kind": "live"}
 
 
 @app.get("/health/ready")
 @app.head("/health/ready")
 async def health_ready():
-    # Readiness probe with DB ping.
     db = get_db()
     try:
         await db.command("ping")

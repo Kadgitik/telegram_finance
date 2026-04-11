@@ -1,13 +1,13 @@
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ChartColumnBig, History, House, PiggyBank, Wallet } from "lucide-react";
+import { ChartColumnBig, History, House, PiggyBank, Plus } from "lucide-react";
 
 const tabs = [
   { to: "/", label: "Головна", icon: House },
   { to: "/stats", label: "Статистика", icon: ChartColumnBig },
-  { to: "/savings", label: "Скарбничка", icon: PiggyBank },
-  { to: "/budgets", label: "Бюджети", icon: Wallet },
+  { to: "/add?type=expense", label: "Додати", icon: Plus, accent: true },
   { to: "/history", label: "Історія", icon: History },
+  { to: "/savings", label: "Накопичення", icon: PiggyBank },
 ];
 
 export default function BottomNav() {
