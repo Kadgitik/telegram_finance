@@ -14,9 +14,17 @@ from bot.services.mcc import mcc_to_category
 
 # Опис Mono для внутрішніх переказів (між своїми картками/рахунками/банками).
 _INTERNAL_TRANSFER_RE = re.compile(
-    r"^(З|Зі|На)\s+.*(картки|картку|банки|банку|рахунку)$"
-    r"|^Переказ на картку$"
-    r"|^Поповнення картки$",
+    r"^(З|Зі|На)\s+.*(картки|картку|карти|карту|банки|банку|рахунку|рахунок)"
+    r"|^Переказ на картку"
+    r"|^Переказ на карту"
+    r"|^Поповнення картки"
+    r"|^Поповнення карти"
+    r"|^Між рахунками"
+    r"|^Переказ між рахунками"
+    r"|^На банку\b"
+    r"|^З банки\b"
+    r"|^Переказ$"
+    r"|^Переказ коштів$",
     re.IGNORECASE,
 )
 
@@ -126,7 +134,12 @@ def parse_statement_item(item: dict[str, Any], telegram_id: int) -> dict[str, An
 
     # Mono може надіслати description: null — тому (... or "").
     description = (item.get("description") or "").strip()
+    # Detect internal transfers by description regex OR by MCC 4829 (money transfer)
+    # with typical internal transfer descriptions
     is_internal = bool(_INTERNAL_TRANSFER_RE.search(description))
+    # MCC 4829 = грошовий переказ — if combined with empty/generic description, likely internal
+    if not is_internal and mcc == 4829 and not description:
+        is_internal = True
 
     return {
         "telegram_id": telegram_id,

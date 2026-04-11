@@ -32,9 +32,17 @@ def _db() -> AsyncIOMotorDatabase:
     return get_db()
 
 _INTERNAL_RX = re.compile(
-    r"^(З|Зі|На)\s+.*(картки|картку|банки|банку|рахунку)$"
-    r"|^Переказ на картку$"
-    r"|^Поповнення картки$",
+    r"^(З|Зі|На)\s+.*(картки|картку|карти|карту|банки|банку|рахунку|рахунок)"
+    r"|^Переказ на картку"
+    r"|^Переказ на карту"
+    r"|^Поповнення картки"
+    r"|^Поповнення карти"
+    r"|^Між рахунками"
+    r"|^Переказ між рахунками"
+    r"|^На банку\b"
+    r"|^З банки\b"
+    r"|^Переказ$"
+    r"|^Переказ коштів$",
     re.IGNORECASE,
 )
 
@@ -56,6 +64,16 @@ async def fix_transfers(
             )
             count += 1
     return {"fixed": count}
+
+
+@router.post("/admin/clear-transactions")
+async def clear_transactions(
+    telegram_id: int = Depends(telegram_user_id),
+    db: AsyncIOMotorDatabase = Depends(_db),
+) -> dict:
+    """Delete all transactions for the user so they can re-sync from Monobank."""
+    result = await db["transactions"].delete_many({"telegram_id": telegram_id})
+    return {"deleted": result.deleted_count}
 
 
 def _tx_out(doc: dict[str, Any]) -> dict[str, Any]:
@@ -160,7 +178,8 @@ async def bootstrap(
             .find({
                 "telegram_id": telegram_id, 
                 "date": {"$gte": start, "$lt": end_excl},
-                "deleted": {"$ne": True}
+                "deleted": {"$ne": True},
+                "internal_transfer": {"$ne": True},
             })
             .sort("date", -1)
             .limit(10)

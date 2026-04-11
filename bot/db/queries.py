@@ -162,12 +162,17 @@ async def upsert_mono_transaction(
         "mono_id": doc["mono_id"],
     })
     if existing:
+        # If user deleted this transaction, respect the deletion — skip update
+        if existing.get("deleted"):
+            return False
         await db["transactions"].update_one(
             {"_id": existing["_id"]},
             {"$set": {
                 "hold": doc["hold"],
                 "balance_after": doc["balance_after"],
                 "amount": doc["amount"],
+                # Re-evaluate internal_transfer flag on every sync
+                "internal_transfer": doc.get("internal_transfer", False),
             }},
         )
         return False
@@ -204,7 +209,7 @@ async def list_transactions(
     skip: int = 0,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
-    q: dict[str, Any] = {"telegram_id": telegram_id, "deleted": {"$ne": True}}
+    q: dict[str, Any] = {"telegram_id": telegram_id, "deleted": {"$ne": True}, "internal_transfer": {"$ne": True}}
     if type_ in ("expense", "income"):
         q["type"] = type_
     if category:
@@ -244,7 +249,7 @@ async def count_transactions(
     end: datetime | None = None,
     search: str | None = None,
 ) -> int:
-    q: dict[str, Any] = {"telegram_id": telegram_id, "deleted": {"$ne": True}}
+    q: dict[str, Any] = {"telegram_id": telegram_id, "deleted": {"$ne": True}, "internal_transfer": {"$ne": True}}
     if type_ in ("expense", "income"):
         q["type"] = type_
     if category:
@@ -371,7 +376,11 @@ async def delete_saving(
 async def export_transactions_csv_rows(
     db: AsyncIOMotorDatabase, telegram_id: int
 ) -> list[dict[str, Any]]:
-    cur = db["transactions"].find({"telegram_id": telegram_id}).sort("date", -1)
+    cur = db["transactions"].find({
+        "telegram_id": telegram_id,
+        "deleted": {"$ne": True},
+        "internal_transfer": {"$ne": True},
+    }).sort("date", -1)
     return await cur.to_list(length=None)
 
 
