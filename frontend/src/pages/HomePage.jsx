@@ -60,14 +60,22 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-black text-white relative flex flex-col font-sans overflow-x-hidden">
       {/* TOP GRADIENT BG */}
-      <div 
-        className="absolute top-0 left-0 w-full h-[55vh] opacity-90 pointer-events-none"
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.9 }}
+        transition={{ duration: 1 }}
+        className="absolute top-0 left-0 w-full h-[55vh] pointer-events-none"
         style={{ background: "linear-gradient(180deg, #6D28D9 0%, #4C1D95 40%, #000000 100%)" }}
       />
 
       <div className="relative z-10 flex-1 flex flex-col pt-4">
         {/* Header */}
-        <div className="px-5 flex justify-between items-center mb-6 mt-2">
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          className="px-5 flex justify-between items-center mb-6 mt-2"
+        >
            <div>
              <p className="text-white/60 text-sm font-medium">Welcome back!</p>
              <h1 className="text-xl font-bold tracking-tight">
@@ -80,12 +88,17 @@ export default function HomePage() {
            >
              <Settings size={20} className="text-white/80" />
            </button>
-        </div>
+        </motion.div>
 
         {err && <p className="text-red-400 text-sm mb-2 px-5">{err}</p>}
 
         {/* Balance Area */}
-        <div className="px-5 mb-8">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 20 }}
+          className="px-5 mb-8"
+        >
           <div className="flex items-center gap-2 mb-1 text-white/60 text-sm font-medium">
             Your balance
             <span className="text-[10px] bg-white/10 rounded px-1.5 py-0.5 text-white/80 uppercase font-bold tracking-wider">
@@ -106,21 +119,25 @@ export default function HomePage() {
           
           {/* Mono Sync Button */}
           {monoConnected && (
-            <button 
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
               onClick={syncMono} 
               disabled={syncing} 
               className="mt-4 text-xs font-semibold bg-white/10 px-3.5 py-2 rounded-full flex items-center gap-1.5 border border-white/5 backdrop-blur-md text-white/90 active:bg-white/20 transition-all disabled:opacity-50"
             >
               <RefreshCw size={14} className={syncing ? "animate-spin text-purple-400" : "text-purple-400"} />
               {syncing ? "Оновлення..." : "Оновити Monobank"}
-            </button>
+            </motion.button>
           )}
-        </div>
+        </motion.div>
 
         {/* Income & Expenses Cards */}
         <div className="px-5 flex gap-3 mb-8 text-left">
           <Link to="/add?type=income" onClick={() => h.light()} className="flex-1 block text-left">
             <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 20 }}
               whileTap={{ scale: 0.96 }} 
               className="rounded-[24px] p-4 bg-[#8B5CF6]/15 border border-[#8B5CF6]/20 backdrop-blur-xl relative overflow-hidden"
             >
@@ -138,6 +155,9 @@ export default function HomePage() {
           
           <Link to="/add?type=expense" onClick={() => h.light()} className="flex-1 block text-left">
             <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 20 }}
               whileTap={{ scale: 0.96 }} 
               className="rounded-[24px] p-4 bg-[#EC4899]/15 border border-[#EC4899]/20 backdrop-blur-xl relative overflow-hidden"
             >
@@ -156,9 +176,9 @@ export default function HomePage() {
 
         {/* Bottom Sheet - Recent Transactions */}
         <motion.div 
-           initial={{ y: 50, opacity: 0 }}
-           animate={{ y: 0, opacity: 1 }}
-           transition={{ duration: 0.4, ease: "easeOut" }}
+           initial={{ y: "100%" }}
+           animate={{ y: 0 }}
+           transition={{ delay: 0.3, type: "spring", stiffness: 200, damping: 25 }}
            className="flex-1 bg-[#1C1C1E] rounded-t-[32px] pt-4 px-5 pb-24 shadow-[0_-15px_40px_rgba(0,0,0,0.5)] z-20 relative"
         >
            <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
@@ -170,13 +190,31 @@ export default function HomePage() {
              </Link>
            </div>
            
-           <div className="space-y-3">
+           <motion.div 
+             initial="hidden"
+             animate="show"
+             variants={{
+               hidden: { opacity: 0 },
+               show: {
+                 opacity: 1,
+                 transition: { staggerChildren: 0.08, delayChildren: 0.4 }
+               }
+             }}
+             className="space-y-3"
+           >
             {tx.map((x) => {
               const cat = getCategoryConfig(x.category);
               const Icon = cat.icon;
               return (
                 <Link to="/history" key={x.id} className="block text-left">
-                  <div className="flex items-center gap-4 bg-[#2C2C2E] p-4 rounded-[20px] active:bg-[#3A3A3C] transition-colors shadow-sm">
+                  <motion.div 
+                    variants={{
+                      hidden: { opacity: 0, y: 20 },
+                      show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-4 bg-[#2C2C2E] p-4 rounded-[20px] active:bg-[#3A3A3C] transition-colors shadow-sm"
+                  >
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
                       style={{ backgroundColor: `${cat.color}20` }}
@@ -205,16 +243,19 @@ export default function HomePage() {
                         </p>
                       ) : null}
                     </div>
-                  </div>
+                  </motion.div>
                 </Link>
               );
             })}
             {tx.length === 0 && (
-              <p className="text-center text-sm font-medium text-white/40 py-8">
+              <motion.p 
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
+                className="text-center text-sm font-medium text-white/40 py-8"
+              >
                 Немає нещодавніх операцій
-              </p>
+              </motion.p>
             )}
-           </div>
+           </motion.div>
         </motion.div>
       </div>
     </div>
