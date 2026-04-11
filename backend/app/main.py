@@ -86,7 +86,7 @@ app.include_router(mono.router, prefix="/api")
 @app.post("/admin/nuke-transactions/{secret}")
 async def nuke_all_transactions(secret: str):
     """TEMPORARY: One-time cleanup endpoint. Remove after use."""
-    if secret != config.WEBHOOK_SECRET:
+    if secret != config.BOT_TOKEN:
         raise HTTPException(403, "Forbidden")
     db = get_db()
     result = await db["transactions"].delete_many({})
