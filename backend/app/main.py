@@ -83,17 +83,6 @@ app.include_router(savings.router, prefix="/api")
 app.include_router(mono.router, prefix="/api")
 
 
-@app.post("/admin/nuke-transactions")
-async def nuke_all_transactions(request: Request):
-    """TEMPORARY: One-time cleanup endpoint. Remove after use."""
-    secret = request.query_params.get("key", "")
-    if secret != config.BOT_TOKEN:
-        raise HTTPException(403, "Forbidden")
-    db = get_db()
-    result = await db["transactions"].delete_many({})
-    return {"deleted": result.deleted_count, "status": "all transactions cleared"}
-
-
 @app.get("/health")
 @app.head("/health")
 async def health():
