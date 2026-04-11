@@ -10,6 +10,7 @@ from aiogram.types import Update
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.routers import mono, savings, stats, transactions
 from bot import config
@@ -58,6 +59,19 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Finance Mini App API",
     lifespan=lifespan,
+)
+
+# CORS Policy
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://web.telegram.org",
+        "https://app.telegram.org",
+        config.WEBAPP_URL,
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 app.include_router(transactions.router, prefix="/api")

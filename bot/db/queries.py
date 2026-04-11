@@ -13,6 +13,7 @@ from bot.db.pipelines import (
     pipeline_daily_expense_totals,
     pipeline_stats_expense_by_category,
 )
+from backend.app.services.security import security_service
 
 
 # ── Users ──────────────────────────────────────────────────────────────
@@ -47,7 +48,10 @@ async def upsert_user(
 
 
 async def get_user(db: AsyncIOMotorDatabase, telegram_id: int) -> dict[str, Any] | None:
-    return await db["users"].find_one({"telegram_id": telegram_id})
+    user = await db["users"].find_one({"telegram_id": telegram_id})
+    if user and user.get("mono_token"):
+        user["mono_token"] = security_service.decrypt_token(user["mono_token"])
+    return user
 
 
 async def set_mono_token(
@@ -58,7 +62,7 @@ async def set_mono_token(
     accounts: list | None = None,
 ) -> None:
     update: dict[str, Any] = {
-        "mono_token": token,
+        "mono_token": security_service.encrypt_token(token) if token else None,
         "updated_at": datetime.now(timezone.utc),
     }
     if client_id is not None:

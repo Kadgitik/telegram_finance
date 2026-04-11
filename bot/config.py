@@ -64,6 +64,7 @@ MONGODB_URI = _req("MONGODB_URI")
 MONGODB_DB = _req("MONGODB_DB") or "finance_bot"
 WEBHOOK_BASE_URL = _req("WEBHOOK_URL").rstrip("/")
 WEBHOOK_SECRET = _telegram_safe_webhook_secret(_req("WEBHOOK_SECRET"))
+ENCRYPTION_KEY = _req("ENCRYPTION_KEY")
 PORT = int(os.environ.get("PORT", "10000"))
 
 WEBHOOK_PATH = "/webhook"

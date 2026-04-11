@@ -15,7 +15,7 @@ def validate_init_data(
     init_data: str,
     *,
     bot_token: str | None = None,
-    max_age_seconds: int = 3600,
+    max_age_seconds: int = 300,
 ) -> dict[str, Any]:
     """
     Повертає розпарсений об'єкт user (поле user з initData).
