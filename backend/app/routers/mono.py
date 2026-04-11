@@ -198,6 +198,29 @@ async def sync_statement(
     if failed and total_items == 0:
         raise HTTPException(502, f"Monobank Error: {last_err}")
 
+    # Refresh cached account balances from Monobank API after sync
+    try:
+        info = await monobank.get_client_info(token)
+        accounts_refreshed = []
+        for acc in info.get("accounts", []):
+            accounts_refreshed.append({
+                "id": acc.get("id"),
+                "type": acc.get("type"),
+                "currency_code": acc.get("currencyCode"),
+                "balance": acc.get("balance", 0) / 100.0,
+                "credit_limit": acc.get("creditLimit", 0) / 100.0,
+                "masked_pan": acc.get("maskedPan", []),
+                "iban": acc.get("iban"),
+                "cashback_type": acc.get("cashbackType"),
+            })
+        await queries.set_mono_token(
+            db, telegram_id, token,
+            client_id=info.get("clientId"),
+            accounts=accounts_refreshed,
+        )
+    except Exception as e:
+        _LOGGER.warning("Failed to refresh account balances after sync: %s", e)
+
     return {
         "ok": True,
         "total": total_items,

@@ -68,6 +68,8 @@ export default function SettingsPage() {
       const r = await api.post("/mono/sync", initData, {});
       setMsg(`Синхронізовано: ${r.new} нових, ${r.updated} оновлених з ${r.total}`);
       h.success();
+      // Refresh status to show updated card balances
+      await loadStatus();
     } catch (e) {
       setErr(String(e.message || "Помилка синхронізації"));
       h.error();
