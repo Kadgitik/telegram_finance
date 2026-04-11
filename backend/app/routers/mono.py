@@ -150,35 +150,56 @@ async def sync_statement(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
-    """Sync last 31 days of transactions from Monobank."""
+    """Sync last 31 days of transactions from Monobank for all accounts."""
+    import asyncio
     user = await queries.get_user(db, telegram_id)
     if not user or not user.get("mono_token"):
         raise HTTPException(400, "Monobank не підключено")
 
-    account_id = user.get("default_account") or "0"
     token = user["mono_token"]
-
     now = int(time.time())
     from_ts = now - 2682000  # 31 days + 1 hour
 
-    try:
-        items = await monobank.get_statement(token, account_id, from_ts, now)
-    except MonobankError as e:
-        raise HTTPException(502, f"Monobank: {e.description}") from e
+    accounts = user.get("mono_accounts", [])
+    if not accounts:
+        accounts = [{"id": user.get("default_account") or "0"}]
 
     new_count = 0
     updated_count = 0
-    for item in items:
-        doc = parse_statement_item(item, telegram_id)
-        is_new = await queries.upsert_mono_transaction(db, doc)
-        if is_new:
-            new_count += 1
-        else:
-            updated_count += 1
+    total_items = 0
+
+    failed = False
+    last_err = ""
+
+    for acc in accounts:
+        account_id = acc.get("id")
+        if not account_id:
+            continue
+        try:
+            items = await monobank.get_statement(token, account_id, from_ts, now)
+        except MonobankError as e:
+            _LOGGER.error("Monobank sync error for account %s: %s", account_id, e.description)
+            failed = True
+            last_err = e.description
+            continue
+
+        total_items += len(items)
+        for item in items:
+            doc = parse_statement_item(item, telegram_id)
+            is_new = await queries.upsert_mono_transaction(db, doc)
+            if is_new:
+                new_count += 1
+            else:
+                updated_count += 1
+                
+        await asyncio.sleep(0.3)
+
+    if failed and total_items == 0:
+        raise HTTPException(502, f"Monobank Error: {last_err}")
 
     return {
         "ok": True,
-        "total": len(items),
+        "total": total_items,
         "new": new_count,
         "updated": updated_count,
     }

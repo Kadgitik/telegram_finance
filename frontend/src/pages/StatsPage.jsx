@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArcElement,
   BarElement,
@@ -24,6 +25,28 @@ export default function StatsPage() {
   const [trend, setTrend] = useState(null);
   const [month, setStoredMonth] = useStoredMonth();
   const usdRate = useFxRate();
+
+  const [expandedCat, setExpandedCat] = useState(null);
+  const [catTx, setCatTx] = useState([]);
+  const [loadingCat, setLoadingCat] = useState(false);
+
+  const toggleCat = async (cName) => {
+    if (expandedCat === cName) {
+      setExpandedCat(null);
+      return;
+    }
+    setExpandedCat(cName);
+    setLoadingCat(true);
+    setCatTx([]);
+    try {
+      const res = await api.get(`/transactions?type=expense&month=${month}&category=${encodeURIComponent(cName)}&limit=50`, initData);
+      setCatTx(res.items || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingCat(false);
+    }
+  };
 
   useEffect(() => {
     if (!initData) return;
@@ -85,25 +108,65 @@ export default function StatsPage() {
             {cats.map((c) => {
               const cfg = getCategoryConfig(c.name);
               const Icon = cfg.icon;
+              const isExpanded = expandedCat === c.name;
+              
               return (
-                <li
-                  key={c.name}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2"
-                >
+                <li key={c.name} className="rounded-lg overflow-hidden transition-colors">
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${cfg.color}20` }}
+                    className="flex items-center gap-3 px-2 py-2 cursor-pointer active:bg-black/10 rounded-lg"
+                    onClick={() => toggleCat(c.name)}
                   >
-                    <Icon size={16} color={cfg.color} />
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: `${cfg.color}20` }}
+                    >
+                      <Icon size={16} color={cfg.color} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{c.name}</p>
+                      <p className="text-xs text-[var(--app-hint)]">{c.count} оп.</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium tabular-nums">-{formatMoney(c.amount)}</p>
+                      <p className="text-xs text-[var(--app-hint)]">{c.percent}%</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{c.name}</p>
-                    <p className="text-xs text-[var(--app-hint)]">{c.count} оп.</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium tabular-nums">-{formatMoney(c.amount)}</p>
-                    <p className="text-xs text-[var(--app-hint)]">{c.percent}%</p>
-                  </div>
+                  
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden bg-black/10 rounded-lg mt-1"
+                      >
+                        <div className="p-3 space-y-3">
+                          {loadingCat ? (
+                            <p className="text-xs text-center text-[var(--app-hint)]">Завантаження...</p>
+                          ) : catTx.length > 0 ? (
+                            catTx.map((tx) => (
+                              <div key={tx.id} className="flex justify-between items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate text-white/90">
+                                    {tx.description || tx.category || "—"}
+                                  </p>
+                                  <p className="text-[10px] text-[var(--app-hint)]">
+                                    {tx.date.slice(8, 10)}.{tx.date.slice(5, 7)} {tx.date.slice(11, 16)}
+                                    {tx.source === 'monobank' ? " · 💳" : ""}
+                                  </p>
+                                </div>
+                                <p className="text-xs font-medium tabular-nums shrink-0">
+                                  -{formatMoney(tx.amount)}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-center text-[var(--app-hint)]">Немає деталей</p>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </li>
               );
             })}
