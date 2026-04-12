@@ -12,11 +12,66 @@ function buildMonthList(current, count = 24) {
   return items.reverse();
 }
 
-export default function MonthSwitcher({ month, onChange, subtitle = "", periodLabel = "" }) {
+export default function MonthSwitcher({ month, onChange, subtitle = "", periodLabel = "", compact = false }) {
   const [open, setOpen] = useState(false);
   const list = useMemo(() => buildMonthList(month, 24), [month]);
   const { year, month: m } = parseMonthKey(month);
   const monthLabel = formatMonthLabel(`${year}-${String(m).padStart(2, "0")}`);
+
+  if (compact) {
+    return (
+      <>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20 transition-colors"
+            onClick={() => onChange(shiftMonth(month, -1))}
+            aria-label="Попередній місяць"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            className="text-center px-4 py-1.5 rounded-2xl bg-white/5 border border-white/10 active:bg-white/10 transition-colors"
+            onClick={() => setOpen(true)}
+          >
+            <p className="font-semibold text-[17px] text-white/90 leading-tight">{monthLabel}</p>
+          </button>
+          <button
+            type="button"
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20 transition-colors"
+            onClick={() => onChange(shiftMonth(month, 1))}
+            aria-label="Наступний місяць"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+        {open ? (
+          <div className="fixed inset-0 z-[70] bg-black/60 p-4" onClick={() => setOpen(false)}>
+            <div className="max-w-sm mx-auto mt-16 rounded-2xl bg-[var(--app-secondary)] p-3" onClick={(e) => e.stopPropagation()}>
+              <p className="text-sm text-[var(--app-hint)] mb-2">Оберіть місяць</p>
+              <div className="max-h-72 overflow-y-auto space-y-1">
+                {list.map((key) => (
+                  <button
+                    type="button"
+                    key={key}
+                    className={`w-full text-left px-3 py-2 rounded-lg ${key === month ? "bg-[var(--app-button)]/30" : "bg-black/20"}`}
+                    onClick={() => {
+                      onChange(key);
+                      setOpen(false);
+                    }}
+                  >
+                    {formatMonthLabel(key)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-white/10 bg-[var(--app-secondary)]/95 px-3 py-2.5 shadow-[0_8px_20px_rgba(0,0,0,0.25)]">
       <div className="flex items-center justify-between gap-2">
