@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useHaptic } from "../hooks/useHaptic";
@@ -32,11 +32,11 @@ export default function AddPage() {
   );
 
   // Auto-select first category when switching type
-  useMemo(() => {
+  useEffect(() => {
     if (categories.length && !categories.find((c) => c.key === category)) {
       setCategory(categories[0].key);
     }
-  }, [kind]);
+  }, [kind, categories, category]);
 
   const press = (k) => {
     h.light();
@@ -148,8 +148,10 @@ export default function AddPage() {
               description,
             });
             h.success();
-            nav(-1);
-          } catch {
+            // Wait slightly for haptics and to avoid double-clicks
+            setTimeout(() => nav(-1), 100);
+          } catch (err) {
+            console.error("Save error:", err);
             h.error();
             setSaving(false);
             savingRef.current = false;
