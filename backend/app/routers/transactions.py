@@ -48,7 +48,8 @@ async def create_transaction(
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, Any]:
     """Add a manual (cash) transaction."""
-    # Idempotency: skip if same tx within 3 seconds
+    # Idempotency: skip if same tx within 1 second for cash
+    # This prevents double-clicks while allowing fast manual entry
     now = datetime.now(timezone.utc)
     recent = await db["transactions"].find_one(
         {
@@ -57,7 +58,8 @@ async def create_transaction(
             "type": body.type,
             "amount": float(body.amount),
             "category": body.category,
-            "created_at": {"$gte": now - timedelta(seconds=3)},
+            "description": body.description,
+            "created_at": {"$gte": now - timedelta(seconds=1)},
         },
         sort=[("created_at", -1)],
     )

@@ -53,7 +53,15 @@ export default function HomePage() {
       load();
       // Фонове опитування кожні 12 секунд для "Прямого Ефіру"
       const interval = setInterval(() => load(), 12000);
-      return () => clearInterval(interval);
+      
+      // Оновити при поверненні у вкладку/додаток
+      const onFocus = () => load();
+      window.addEventListener("focus", onFocus);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("focus", onFocus);
+      };
     }
   }, [ready, initData, month]);
 
