@@ -32,12 +32,25 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     tx = db["transactions"]
     await tx.create_index([("telegram_id", 1), ("date", -1)])
     await tx.create_index([("telegram_id", 1), ("type", 1), ("date", -1)])
-    await tx.create_index(
-        [("telegram_id", 1), ("mono_id", 1)],
-        unique=True,
-        sparse=True,
-        name="unique_mono_tx",
-    )
+    try:
+        await tx.create_index(
+            [("telegram_id", 1), ("mono_id", 1)],
+            unique=True,
+            partialFilterExpression={"mono_id": {"$type": "string"}},
+            name="unique_mono_tx",
+        )
+    except Exception:
+        # If parameters changed, drop and recreate
+        try:
+            await tx.drop_index("unique_mono_tx")
+            await tx.create_index(
+                [("telegram_id", 1), ("mono_id", 1)],
+                unique=True,
+                partialFilterExpression={"mono_id": {"$type": "string"}},
+                name="unique_mono_tx",
+            )
+        except Exception:
+            pass
 
     savings = db["savings"]
     await savings.create_index([("telegram_id", 1), ("created_at", -1)])
