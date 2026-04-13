@@ -148,13 +148,18 @@ export default function AddPage() {
               description,
             });
             h.success();
-            // Wait slightly for haptics and to avoid double-clicks
             setTimeout(() => nav(-1), 100);
           } catch (err) {
             console.error("Save error:", err);
             h.error();
             setSaving(false);
             savingRef.current = false;
+            // Show visible alert for user
+            if (window.Telegram?.WebApp?.showAlert) {
+              window.Telegram.WebApp.showAlert(`Помилка: ${err.message || "Невідома помилка"}`);
+            } else {
+              alert(`Помилка: ${err.message || "Невідома помилка"}`);
+            }
           }
         }}
       >

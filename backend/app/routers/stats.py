@@ -149,7 +149,7 @@ async def bootstrap(
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 
-    pd = 1  # simplified: always 1st of month
+    pd = await resolve_pay_day(db, telegram_id, month_key=month_param)
     try:
         start, end_excl, month_key = month_window_from_key(month_param, pd)
     except ValueError as exc:

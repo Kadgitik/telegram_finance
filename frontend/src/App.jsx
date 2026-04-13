@@ -15,7 +15,7 @@ import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 function AppRoutes() {
   const loc = useLocation();
   const nav = useNavigate();
-  const { initData } = useTelegram();
+  const { initData, ready } = useTelegram();
   const [, setStoredMonth] = useStoredMonth();
   const [bootReady, setBootReady] = useState(true);
 
@@ -25,6 +25,7 @@ function AppRoutes() {
   useTelegramBackButton(!isRootTab, () => nav(-1));
 
   useEffect(() => {
+    if (!ready) return;
     if (!initData) {
       setBootReady(true);
       return;
@@ -44,7 +45,7 @@ function AppRoutes() {
       }
     })();
     return () => { cancelled = true; };
-  }, [initData, setStoredMonth]);
+  }, [initData, ready, setStoredMonth]);
 
   if (initData && !bootReady) {
     return (
