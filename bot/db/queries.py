@@ -134,7 +134,6 @@ async def add_transaction(
     doc = {
         "telegram_id": telegram_id,
         "source": source,
-        "mono_id": mono_id,
         "type": type_,
         "amount": float(amount),
         "original_amount": original_amount,
@@ -149,6 +148,8 @@ async def add_transaction(
         "date": date or datetime.now(timezone.utc),
         "created_at": datetime.now(timezone.utc),
     }
+    if mono_id is not None:
+        doc["mono_id"] = mono_id
     r = await db["transactions"].insert_one(doc)
     return r.inserted_id
 
