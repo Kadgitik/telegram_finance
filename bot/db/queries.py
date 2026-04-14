@@ -439,3 +439,39 @@ async def deposit_goal(db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId
         {"$inc": {"current_amount": amount}}
     )
     return r.modified_count > 0
+
+# ── Debts ──────────────────────────────────────────────────────────────
+
+async def list_debts(db: AsyncIOMotorDatabase, telegram_id: int) -> list[dict[str, Any]]:
+    return await db["debts"].find({"telegram_id": telegram_id}).sort("created_at", -1).to_list(length=None)
+
+async def add_debt(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    type_: str,
+    contact: str,
+    amount: float,
+    comment: str = ""
+) -> str:
+    doc = {
+        "telegram_id": telegram_id,
+        "type": type_,
+        "contact": contact,
+        "amount": amount,
+        "comment": comment,
+        "resolved": False,
+        "created_at": datetime.now(timezone.utc),
+    }
+    r = await db["debts"].insert_one(doc)
+    return str(r.inserted_id)
+
+async def resolve_debt(db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId) -> bool:
+    r = await db["debts"].update_one(
+        {"telegram_id": telegram_id, "_id": oid},
+        {"$set": {"resolved": True}}
+    )
+    return r.modified_count > 0
+
+async def delete_debt(db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId) -> bool:
+    r = await db["debts"].delete_one({"telegram_id": telegram_id, "_id": oid})
+    return r.deleted_count > 0

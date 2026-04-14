@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.routers import mono, savings, stats, transactions
+from backend.app.routers import mono, savings, stats, transactions, debts
 from bot import config
 from bot.db.mongo import close_client, ensure_indexes, get_client, get_db
 from bot.dispatcher_factory import build_dispatcher
@@ -81,6 +81,7 @@ app.include_router(transactions.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(savings.router, prefix="/api")
 app.include_router(mono.router, prefix="/api")
+app.include_router(debts.router, prefix="/api")
 
 
 @app.get("/health")
