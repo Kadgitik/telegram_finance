@@ -10,11 +10,11 @@ import {
 import { useEffect, useState } from "react";
 import { Bar, Doughnut } from "react-chartjs-2";
 import { api } from "../api/client";
-import MonthSwitcher from "../components/MonthSwitcher";
 import PeriodPickerModal from "../components/PeriodPickerModal";
 import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../context/MonthContext";
+import { Calendar } from "lucide-react";
 import { formatMoney, formatUsdApprox } from "../utils/formatters";
 import { ACCENT, getCategoryConfig } from "../utils/constants";
 
@@ -117,12 +117,14 @@ export default function StatsPage() {
       />
       
       <div className="relative z-10 px-5 pt-8 space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight mb-4">Статистика</h1>
-        <div>
-           <MonthSwitcher month={month} onChange={(m) => { setPeriodType('month'); setStoredMonth(m); }} periodLabel={stats?.period_label || ""} />
-           <button onClick={() => setShowPicker(true)} className="w-full mt-2 text-[13px] text-[#10b981] font-semibold flex items-center justify-center gap-1 bg-[#10b981]/10 py-2 rounded-xl active:bg-[#10b981]/20 transition-colors border border-[#10b981]/20">
-               Змінити період
-           </button>
+        <div className="mb-2">
+          <h1 className="text-[32px] font-extrabold tracking-tight text-white leading-tight mb-1">Статистика</h1>
+          <button onClick={() => setShowPicker(true)} className="flex items-center gap-2 text-[17px] font-medium text-white/80 active:opacity-70 transition-opacity">
+            {stats ? stats.period_label : "Завантаження..."}
+            <div className="bg-white/10 p-1.5 rounded-full flex items-center justify-center text-white/80">
+                <Calendar size={18} />
+            </div>
+          </button>
         </div>
 
         {stats && (
@@ -314,9 +316,13 @@ export default function StatsPage() {
         currentPeriodType={periodType}
         currentMonth={month}
         currentRange={customRange}
-        onApply={(type, range) => {
+        onApply={(type, data) => {
           setPeriodType(type);
-          if (type === 'custom') setCustomRange(range);
+          if (type === 'custom') {
+            setCustomRange(data);
+          } else {
+            setStoredMonth(data);
+          }
           setShowPicker(false);
         }}
       />
