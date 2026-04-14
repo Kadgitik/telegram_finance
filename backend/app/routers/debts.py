@@ -24,6 +24,8 @@ def _debt_out(doc: dict) -> dict:
         "contact": doc["contact"],
         "amount": float(doc["amount"]),
         "comment": doc.get("comment", ""),
+        "original_amount": float(doc["original_amount"]) if "original_amount" in doc else None,
+        "original_currency": doc.get("original_currency"),
         "resolved": doc.get("resolved", False),
         "created_at": doc["created_at"].isoformat(),
     }
@@ -45,7 +47,7 @@ async def create_debt(
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
     oid_str = await queries.add_debt(
-        db, telegram_id, body.type, body.contact, body.amount, body.comment
+        db, telegram_id, body.type, body.contact, body.amount, body.comment, body.original_amount, body.original_currency
     )
     doc = await db["debts"].find_one({"_id": ObjectId(oid_str)})
     assert doc

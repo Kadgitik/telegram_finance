@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { HandCoins, Plus, Trash2, CheckCircle2, Share } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { formatMoney } from "../utils/formatters";
@@ -17,7 +18,9 @@ export default function DebtsPage() {
   const [addingDebt, setAddingDebt] = useState(false);
   const [debtContact, setDebtContact] = useState("");
   const [debtAmount, setDebtAmount] = useState("");
+  const [debtCurrency, setDebtCurrency] = useState("UAH");
   const [debtComment, setDebtComment] = useState("");
+  const usdRate = useFxRate();
 
   const load = async () => {
     if (!initData) return;
@@ -39,8 +42,17 @@ export default function DebtsPage() {
   }, [initData]);
 
   const handleAddDebt = async () => {
-    const val = parseFloat(debtAmount);
+    let val = parseFloat(debtAmount);
     if (!initData || !val || val <= 0 || !debtContact) return;
+    
+    let originalAmount = undefined;
+    let originalCurrency = undefined;
+    if (debtCurrency === "USD") {
+      originalAmount = val;
+      originalCurrency = "USD";
+      val = val * usdRate;
+    }
+    
     setAddingDebt(true);
     h.light();
     try {
@@ -48,7 +60,9 @@ export default function DebtsPage() {
         type: tab, 
         contact: debtContact, 
         amount: val, 
-        comment: debtComment 
+        comment: debtComment,
+        original_amount: originalAmount,
+        original_currency: originalCurrency
       });
       h.success();
       setDebtAmount("");
@@ -151,7 +165,7 @@ export default function DebtsPage() {
         >
           <div>
              <p className="text-[13px] text-white/50 mb-1">{tab === "owed_to_me" ? "Загальна сума, що винні вам:" : "Загальна сума ваших боргів:"}</p>
-             <p className="text-2xl font-bold tracking-tight text-white">{formatMoney(totalActive)} ₴</p>
+             <p className="text-2xl font-bold tracking-tight text-white">{formatMoney(totalActive)}</p>
           </div>
           <div className="w-12 h-12 rounded-full bg-[#6366f1]/20 flex items-center justify-center">
             <HandCoins size={24} className="text-[#818cf8]" />
@@ -183,13 +197,21 @@ export default function DebtsPage() {
                     onChange={(e) => setDebtContact(e.target.value)}
                     autoFocus
                 />
-                <input
-                    type="number"
-                    className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#6366f1]/50 outline-none transition-colors"
-                    placeholder="Сума боргу (напр. 500)"
-                    value={debtAmount}
-                    onChange={(e) => setDebtAmount(e.target.value)}
-                />
+                <div className="flex bg-black/40 rounded-[16px] border border-white/5 overflow-hidden">
+                  <input
+                      type="number"
+                      className="w-full px-4 py-3 bg-transparent text-[15px] placeholder:text-white/30 focus:border-[#6366f1]/50 outline-none transition-colors"
+                      placeholder="Сума боргу (напр. 500)"
+                      value={debtAmount}
+                      onChange={(e) => setDebtAmount(e.target.value)}
+                  />
+                  <button 
+                      onClick={() => setDebtCurrency(debtCurrency === "UAH" ? "USD" : "UAH")}
+                      className="px-4 py-3 font-bold text-[#818cf8] bg-white/5 border-l border-white/5 active:bg-white/10 transition-colors"
+                  >
+                      {debtCurrency === "UAH" ? "₴" : "$"}
+                  </button>
+                </div>
                 <input
                     className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#6366f1]/50 outline-none transition-colors"
                     placeholder="Коментар (необов'язково)"
@@ -230,10 +252,16 @@ export default function DebtsPage() {
                         <p className="text-[13px] text-white/40">{new Date(d.created_at).toLocaleDateString("uk-UA")}</p>
                     </div>
                     <div className="text-right">
-                        <p className="font-bold text-[17px] text-[#818cf8]">{formatMoney(d.amount)} ₴</p>
+                        <p className="font-bold text-[17px] text-[#818cf8]">{formatMoney(d.amount)}</p>
                     </div>
                 </div>
                 {d.comment && <p className="text-[13px] text-white/60 mb-3">{d.comment}</p>}
+                
+                {d.original_currency === "USD" && d.original_amount && (
+                    <p className="text-[12px] text-white/40 font-medium mb-2 opacity-80">
+                         {formatMoney(d.original_amount, "USD")}
+                    </p>
+                )}
                 
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
                     <button 
@@ -280,7 +308,12 @@ export default function DebtsPage() {
                         <p className="text-[11px] text-white/30">{new Date(d.created_at).toLocaleDateString("uk-UA")}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <p className="font-semibold text-white/60 text-[14px]">{formatMoney(d.amount)} ₴</p>
+                        <div className="text-right">
+                           <p className="font-semibold text-white/60 text-[14px]">{formatMoney(d.amount)}</p>
+                           {d.original_currency === "USD" && d.original_amount && (
+                               <p className="text-[10px] text-white/40">{formatMoney(d.original_amount, "USD")}</p>
+                           )}
+                        </div>
                         <button onClick={() => handleDeleteDebt(d.id)} className="text-white/20 hover:text-red-400">
                              <Trash2 size={16} />
                         </button>

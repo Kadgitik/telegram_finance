@@ -24,6 +24,8 @@ class MonoSetDefaultAccount(BaseModel):
 class SavingsCreate(BaseModel):
     amount: float = Field(gt=0)
     comment: str = ""
+    original_amount: float | None = None
+    original_currency: str | None = None
 
 
 class GoalCreate(BaseModel):
@@ -40,3 +42,5 @@ class DebtCreate(BaseModel):
     contact: str = Field(min_length=1, max_length=100)
     amount: float = Field(gt=0)
     comment: str = ""
+    original_amount: float | None = None
+    original_currency: str | None = None

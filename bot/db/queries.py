@@ -334,6 +334,8 @@ async def add_saving(
     telegram_id: int,
     amount: float,
     comment: str = "",
+    original_amount: float | None = None,
+    original_currency: str | None = None,
 ) -> ObjectId:
     doc = {
         "telegram_id": telegram_id,
@@ -341,6 +343,10 @@ async def add_saving(
         "comment": comment.strip(),
         "created_at": datetime.now(timezone.utc),
     }
+    if original_amount is not None:
+        doc["original_amount"] = float(original_amount)
+    if original_currency is not None:
+        doc["original_currency"] = original_currency
     r = await db["savings"].insert_one(doc)
     return r.inserted_id
 
@@ -455,7 +461,9 @@ async def add_debt(
     type_: str,
     contact: str,
     amount: float,
-    comment: str = ""
+    comment: str = "",
+    original_amount: float | None = None,
+    original_currency: str | None = None,
 ) -> str:
     doc = {
         "telegram_id": telegram_id,
@@ -466,6 +474,10 @@ async def add_debt(
         "resolved": False,
         "created_at": datetime.now(timezone.utc),
     }
+    if original_amount is not None:
+        doc["original_amount"] = float(original_amount)
+    if original_currency is not None:
+        doc["original_currency"] = original_currency
     r = await db["debts"].insert_one(doc)
     return str(r.inserted_id)
 

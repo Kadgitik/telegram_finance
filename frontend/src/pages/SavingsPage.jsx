@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { PiggyBank, Plus, Target, Trash2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { formatMoney } from "../utils/formatters";
@@ -16,8 +17,10 @@ export default function SavingsPage() {
   const [monoSavings, setMonoSavings] = useState([]);
   const [showAddSaving, setShowAddSaving] = useState(false);
   const [savingAmount, setSavingAmount] = useState("");
+  const [savingCurrency, setSavingCurrency] = useState("UAH");
   const [savingComment, setSavingComment] = useState("");
   const [addingSaving, setAddingSaving] = useState(false);
+  const usdRate = useFxRate();
 
   // Goals state
   const [goals, setGoals] = useState([]);
@@ -70,12 +73,26 @@ export default function SavingsPage() {
 
   // Free savings handlers
   const handleAddSaving = async () => {
-    const val = parseFloat(savingAmount);
+    let val = parseFloat(savingAmount);
     if (!initData || !val || val <= 0) return;
+    
+    let originalAmount = undefined;
+    let originalCurrency = undefined;
+    if (savingCurrency === "USD") {
+      originalAmount = val;
+      originalCurrency = "USD";
+      val = val * usdRate;
+    }
+    
     setAddingSaving(true);
     h.light();
     try {
-      await api.post("/savings", initData, { amount: val, comment: savingComment });
+      await api.post("/savings", initData, { 
+         amount: val, 
+         comment: savingComment,
+         original_amount: originalAmount,
+         original_currency: originalCurrency
+      });
       h.success();
       setSavingAmount("");
       setSavingComment("");
@@ -240,14 +257,22 @@ export default function SavingsPage() {
                   className="overflow-hidden"
                 >
                   <div className="rounded-[24px] bg-[#1C1C1E] p-5 space-y-3 border border-[#10b981]/20">
-                    <input
-                      type="number"
-                      className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
-                      placeholder="Сума (наприклад: 1000)"
-                      value={savingAmount}
-                      onChange={(e) => setSavingAmount(e.target.value)}
-                      autoFocus
-                    />
+                    <div className="flex bg-black/40 rounded-[16px] border border-white/5 overflow-hidden">
+                      <input
+                        type="number"
+                        className="w-full px-4 py-3 bg-transparent text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
+                        placeholder="Сума (наприклад: 1000)"
+                        value={savingAmount}
+                        onChange={(e) => setSavingAmount(e.target.value)}
+                        autoFocus
+                      />
+                      <button 
+                         onClick={() => setSavingCurrency(savingCurrency === "UAH" ? "USD" : "UAH")}
+                         className="px-4 py-3 font-bold text-[#34d399] bg-white/5 border-l border-white/5 active:bg-white/10 transition-colors"
+                      >
+                         {savingCurrency === "UAH" ? "₴" : "$"}
+                      </button>
+                    </div>
                     <input
                       className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
                       placeholder="Коментар (необов'язково)"
@@ -310,6 +335,11 @@ export default function SavingsPage() {
                     <p className="font-semibold text-[15px] text-white/90">
                       +{formatMoney(s.amount).replace(" ₴", "")} ₴
                     </p>
+                    {s.original_currency === "USD" && s.original_amount && (
+                      <p className="text-[12px] font-medium text-white/50 mb-0.5">
+                        +{formatMoney(s.original_amount, "USD")}
+                      </p>
+                    )}
                     {s.comment && (
                       <p className="text-[12px] text-white/40 truncate">{s.comment}</p>
                     )}

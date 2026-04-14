@@ -40,14 +40,14 @@ export default function PeriodPickerModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 pointer-events-auto"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] pointer-events-auto"
           />
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 w-full bg-[#1C1C1E] rounded-t-[32px] p-6 z-50 shadow-2xl border-t border-white/10 pointer-events-auto"
+            className="fixed bottom-0 left-0 w-full bg-[#1C1C1E] rounded-t-[32px] p-6 z-[100] shadow-2xl border-t border-white/10 pointer-events-auto"
           >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -98,22 +98,22 @@ export default function PeriodPickerModal({
                 
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <label className="block text-[11px] font-semibold text-white/40 uppercase mb-1.5 pl-1">Від</label>
+                    <label className="block text-[12px] font-bold text-white/50 uppercase mb-2 pl-1">Від</label>
                     <input
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-3.5 text-[15px] font-medium text-white focus:outline-none focus:border-[#10b981] transition-colors"
+                      className="w-full bg-[#2C2C2E] border border-transparent rounded-2xl px-3 py-3.5 text-[15px] font-medium text-white shadow-inner focus:outline-none focus:border-[#10b981] transition-colors"
                       style={{ colorScheme: "dark" }}
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-[11px] font-semibold text-white/40 uppercase mb-1.5 pl-1">До</label>
+                    <label className="block text-[12px] font-bold text-white/50 uppercase mb-2 pl-1">До</label>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-3.5 text-[15px] font-medium text-white focus:outline-none focus:border-[#10b981] transition-colors"
+                      className="w-full bg-[#2C2C2E] border border-transparent rounded-2xl px-3 py-3.5 text-[15px] font-medium text-white shadow-inner focus:outline-none focus:border-[#10b981] transition-colors"
                       style={{ colorScheme: "dark" }}
                     />
                   </div>
