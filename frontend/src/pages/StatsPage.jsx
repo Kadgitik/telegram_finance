@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { Bar, Doughnut } from "react-chartjs-2";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
+import PeriodPickerModal from "../components/PeriodPickerModal";
 import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../context/MonthContext";
@@ -24,6 +25,9 @@ export default function StatsPage() {
   const [stats, setStats] = useState(null);
   const [trend, setTrend] = useState(null);
   const [month, setStoredMonth] = useStoredMonth();
+  const [periodType, setPeriodType] = useState("month");
+  const [customRange, setCustomRange] = useState({ start: "", end: "" });
+  const [showPicker, setShowPicker] = useState(false);
   const usdRate = useFxRate();
 
   const [expandedCat, setExpandedCat] = useState(null);
@@ -52,8 +56,9 @@ export default function StatsPage() {
     if (!initData) return;
     
     // Cache Setup
-    const cacheKeyS = `statsCache_${month}`;
-    const cacheKeyT = `trendCache_${month}`;
+    const cKey = periodType === "month" ? month : `${customRange.start}_${customRange.end}`;
+    const cacheKeyS = `statsCache_${periodType}_${cKey}`;
+    const cacheKeyT = `trendCache_${periodType}_${cKey}`;
     if (!stats) {
       const s = localStorage.getItem(cacheKeyS);
       const t = localStorage.getItem(cacheKeyT);
@@ -64,16 +69,24 @@ export default function StatsPage() {
     }
 
     (async () => {
+      const qs = periodType === "month" 
+        ? `period=month&month=${month}`
+        : `period=custom&start_date=${customRange.start}&end_date=${customRange.end}`;
+        
+      const tQs = periodType === "month"
+        ? `days=30&month=${month}`
+        : `start_date=${customRange.start}&end_date=${customRange.end}`;
+
       const [s, t] = await Promise.all([
-        api.get(`/stats?period=month&month=${month}`, initData),
-        api.get(`/stats/trend?days=30&month=${month}`, initData),
+        api.get(`/stats?${qs}`, initData),
+        api.get(`/stats/trend?${tQs}`, initData),
       ]);
       localStorage.setItem(cacheKeyS, JSON.stringify(s));
       localStorage.setItem(cacheKeyT, JSON.stringify(t));
       setStats(s);
       setTrend(t);
     })().catch(() => {});
-  }, [initData, month]);
+  }, [initData, month, periodType, customRange]);
 
   const cats = stats?.categories || [];
   const doughnutData = {
@@ -82,7 +95,9 @@ export default function StatsPage() {
       {
         data: cats.map((c) => c.amount),
         backgroundColor: cats.map((c) => getCategoryConfig(c.name).color),
-        borderWidth: 0,
+        borderWidth: 2,
+        borderColor: "#1C1C1E",
+        hoverOffset: 8,
       },
     ],
   };
@@ -103,7 +118,12 @@ export default function StatsPage() {
       
       <div className="relative z-10 px-5 pt-8 space-y-6">
         <h1 className="text-2xl font-bold tracking-tight mb-4">Статистика</h1>
-        <MonthSwitcher month={month} onChange={setStoredMonth} periodLabel={stats?.period_label || ""} />
+        <div>
+           <MonthSwitcher month={month} onChange={(m) => { setPeriodType('month'); setStoredMonth(m); }} periodLabel={stats?.period_label || ""} />
+           <button onClick={() => setShowPicker(true)} className="w-full mt-2 text-[13px] text-[#10b981] font-semibold flex items-center justify-center gap-1 bg-[#10b981]/10 py-2 rounded-xl active:bg-[#10b981]/20 transition-colors border border-[#10b981]/20">
+               Змінити період
+           </button>
+        </div>
 
         {stats && (
           <motion.div 
@@ -129,14 +149,36 @@ export default function StatsPage() {
           className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl"
         >
           <p className="font-semibold text-white/50 mb-4">Розподіл витрат</p>
-          <div className="w-48 h-48 mx-auto mb-4">
+          <div className="relative w-48 h-48 mx-auto mb-6">
             <Doughnut
               data={doughnutData}
               options={{
-                cutout: "65%",
-                plugins: { legend: { display: false } },
+                cutout: "75%",
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { 
+                  legend: { display: false },
+                  tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.85)',
+                    padding: 12,
+                    cornerRadius: 12,
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 16, weight: 'bold' },
+                    displayColors: true,
+                    boxPadding: 4,
+                    callbacks: {
+                       label: function(context) {
+                          return ' ' + context.parsed.toLocaleString('uk-UA') + ' ₴';
+                       }
+                    }
+                  }
+                },
               }}
             />
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-0.5">Всього</span>
+              <span className="text-[17px] font-extrabold tracking-tight">{formatMoney(stats.total).replace(" ₴", "")}</span>
+            </div>
           </div>
 
           {/* Category list */}
@@ -217,28 +259,67 @@ export default function StatsPage() {
           className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl mb-6"
         >
           <p className="font-semibold text-white/50 mb-4">Витрати по днях</p>
-          <Bar
-            data={{
-              labels: barLabels,
-              datasets: [
-                {
-                  data: barVals,
-                  borderRadius: 6,
-                  backgroundColor: ACCENT.blue,
+          <div className="h-48 w-full">
+            <Bar
+              data={{
+                labels: barLabels,
+                datasets: [
+                  {
+                    data: barVals,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    backgroundColor: (context) => {
+                      const ctx = context.chart.ctx;
+                      const gradient = ctx.createLinearGradient(0, 0, 0, context.chart.height);
+                      gradient.addColorStop(0, '#10b981');
+                      gradient.addColorStop(1, 'rgba(16, 185, 129, 0.1)');
+                      return gradient;
+                    },
+                    barThickness: Math.min(16, 240 / Math.max(1, barLabels.length)),
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                  legend: { display: false },
+                  tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.85)',
+                    padding: 12,
+                    cornerRadius: 12,
+                    displayColors: false,
+                    titleColor: '#10b981',
+                    callbacks: {
+                       label: function(context) {
+                          return context.parsed.y.toLocaleString('uk-UA') + ' ₴';
+                       }
+                    }
+                  }
                 },
-              ],
-            }}
-            options={{
-              plugins: { legend: { display: false } },
-              scales: {
-                x: { ticks: { color: "#888", maxRotation: 0, autoSkip: true, font: { size: 10 } } },
-                y: { ticks: { color: "#888" } },
-              },
-            }}
-          />
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: "#666", maxRotation: 0, font: { size: 10 } } },
+                  y: { grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#666", font: { size: 10 } }, beginAtZero: true },
+                },
+              }}
+            />
+          </div>
         </motion.div>
       )}
       </div>
+      
+      <PeriodPickerModal 
+        isOpen={showPicker}
+        onClose={() => setShowPicker(false)}
+        currentPeriodType={periodType}
+        currentMonth={month}
+        currentRange={customRange}
+        onApply={(type, range) => {
+          setPeriodType(type);
+          if (type === 'custom') setCustomRange(range);
+          setShowPicker(false);
+        }}
+      />
     </div>
   );
 }
