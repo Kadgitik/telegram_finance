@@ -54,10 +54,22 @@ async def connect_monobank(
             "cashback_type": acc.get("cashbackType"),
         })
 
+    jars_out = []
+    for jar in info.get("jars", []):
+        jars_out.append({
+            "id": jar.get("id"),
+            "title": jar.get("title", "Банка"),
+            "description": jar.get("description", ""),
+            "currency_code": jar.get("currencyCode"),
+            "balance": jar.get("balance", 0) / 100.0,
+            "goal": jar.get("goal", 0) / 100.0,
+        })
+
     await queries.set_mono_token(
         db, telegram_id, body.token,
         client_id=info.get("clientId"),
         accounts=accounts_out,
+        jars=jars_out,
     )
 
     # Auto-select first UAH black account as default
@@ -124,11 +136,23 @@ async def get_accounts(
             "cashback_type": acc.get("cashbackType"),
         })
 
+    jars = []
+    for jar in info.get("jars", []):
+        jars.append({
+            "id": jar.get("id"),
+            "title": jar.get("title", "Банка"),
+            "description": jar.get("description", ""),
+            "currency_code": jar.get("currencyCode"),
+            "balance": jar.get("balance", 0) / 100.0,
+            "goal": jar.get("goal", 0) / 100.0,
+        })
+
     # Update cached accounts
     await queries.set_mono_token(
         db, telegram_id, user["mono_token"],
         client_id=info.get("clientId"),
         accounts=accounts,
+        jars=jars,
     )
 
     return {
@@ -213,10 +237,21 @@ async def sync_statement(
                 "iban": acc.get("iban"),
                 "cashback_type": acc.get("cashbackType"),
             })
+        jars_refreshed = []
+        for jar in info.get("jars", []):
+            jars_refreshed.append({
+                "id": jar.get("id"),
+                "title": jar.get("title", "Банка"),
+                "description": jar.get("description", ""),
+                "currency_code": jar.get("currencyCode"),
+                "balance": jar.get("balance", 0) / 100.0,
+                "goal": jar.get("goal", 0) / 100.0,
+            })
         await queries.set_mono_token(
             db, telegram_id, token,
             client_id=info.get("clientId"),
             accounts=accounts_refreshed,
+            jars=jars_refreshed,
         )
     except Exception as e:
         _LOGGER.warning("Failed to refresh account balances after sync: %s", e)

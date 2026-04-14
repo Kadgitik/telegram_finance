@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime, timezone
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -33,7 +34,29 @@ async def get_savings(
 ) -> dict:
     rows = await queries.list_savings(db, telegram_id, limit=200)
     total = await queries.savings_total(db, telegram_id)
-    return {"total": total, "history": [_out(x) for x in rows]}
+    
+    user = await queries.get_user(db, telegram_id)
+    mono_jars = user.get("mono_jars", []) if user else []
+    
+    mono_savings = []
+    mono_total = 0.0
+    for j in mono_jars:
+        if not j.get("goal") or j.get("goal") <= 0:
+            mono_savings.append({
+                "id": j["id"],
+                "name": j.get("title", "Банка"),
+                "amount": j["balance"],
+                "currency": j.get("currency_code")
+            })
+            mono_total += j["balance"]
+
+    return {
+        "total": total + mono_total,
+        "manual_total": total,
+        "mono_total": mono_total,
+        "history": [_out(x) for x in rows],
+        "mono_savings": mono_savings
+    }
 
 
 @router.post("/savings", status_code=201)
@@ -80,7 +103,23 @@ async def get_goals(
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
     rows = await queries.list_goals(db, telegram_id)
-    return {"items": [_goal_out(x) for x in rows]}
+    user = await queries.get_user(db, telegram_id)
+    mono_jars = user.get("mono_jars", []) if user else []
+    
+    items = [_goal_out(x) for x in rows]
+    
+    for j in mono_jars:
+        if j.get("goal") and j.get("goal") > 0:
+            items.append({
+                "id": j["id"],
+                "name": j.get("title", "Банка"),
+                "target_amount": float(j["goal"]),
+                "current_amount": float(j["balance"]),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "is_mono": True
+            })
+            
+    return {"items": items}
 
 
 @router.post("/goals", status_code=201)
