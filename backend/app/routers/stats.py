@@ -250,11 +250,27 @@ async def bootstrap(
 async def stats(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
-    period: str = Query("month", pattern="^(week|month|3months|year)$"),
+    period: str = Query("month", pattern="^(week|month|3months|year|custom)$"),
     month: str | None = None,
     pay_day: int | None = Query(None, ge=1, le=28),
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> dict:
-    if period == "week":
+    if period == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(400, "start_date and end_date required for custom period")
+        try:
+            start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=timezone.utc)
+            end_raw = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            if end_raw.tzinfo is None:
+                end_raw = end_raw.replace(tzinfo=timezone.utc)
+            # Make end_date include the entire day
+            end = end_raw + timedelta(days=1)
+        except ValueError:
+            raise HTTPException(400, "Invalid date format")
+    elif period == "week":
         start, end = queries.period_week()
     elif period == "month":
         pd = await resolve_pay_day(db, telegram_id, pay_day, month)
@@ -267,7 +283,7 @@ async def stats(
     else:
         start, end = queries.period_year()
 
-    end_inclusive = period != "month"
+    end_inclusive = period not in ("month", "custom")
     rows = await queries.get_expense_stats(
         db, telegram_id, start, end, end_inclusive=end_inclusive
     )
@@ -275,6 +291,8 @@ async def stats(
     if period == "month" and month:
         body["month"] = month
         body["period_label"] = human_period(start, end)
+    elif period == "custom":
+        body["period_label"] = f"{start.strftime('%d.%m.%Y')} - {(end - timedelta(days=1)).strftime('%d.%m.%Y')}"
     return body
 
 
@@ -315,8 +333,21 @@ async def stats_trend(
     days: int = Query(30, ge=7, le=90),
     month: str | None = None,
     pay_day: int | None = Query(None, ge=1, le=28),
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> dict:
-    if month:
+    if start_date and end_date:
+        try:
+            start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=timezone.utc)
+            end_raw = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            if end_raw.tzinfo is None:
+                end_raw = end_raw.replace(tzinfo=timezone.utc)
+            end = end_raw + timedelta(days=1)
+        except ValueError:
+            raise HTTPException(400, "Invalid date format")
+    elif month:
         pd = await resolve_pay_day(db, telegram_id, pay_day, month)
         try:
             start, end, _ = month_window_from_key(month, pd)
