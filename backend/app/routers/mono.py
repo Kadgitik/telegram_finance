@@ -61,8 +61,8 @@ async def connect_monobank(
             "title": jar.get("title", "Банка"),
             "description": jar.get("description", ""),
             "currency_code": jar.get("currencyCode"),
-            "balance": jar.get("balance", 0) / 100.0,
-            "goal": jar.get("goal", 0) / 100.0,
+            "balance": (jar.get("balance") or 0) / 100.0,
+            "goal": (jar.get("goal") or 0) / 100.0,
         })
 
     await queries.set_mono_token(
@@ -143,8 +143,8 @@ async def get_accounts(
             "title": jar.get("title", "Банка"),
             "description": jar.get("description", ""),
             "currency_code": jar.get("currencyCode"),
-            "balance": jar.get("balance", 0) / 100.0,
-            "goal": jar.get("goal", 0) / 100.0,
+            "balance": (jar.get("balance") or 0) / 100.0,
+            "goal": (jar.get("goal") or 0) / 100.0,
         })
 
     # Update cached accounts
@@ -244,8 +244,8 @@ async def sync_statement(
                 "title": jar.get("title", "Банка"),
                 "description": jar.get("description", ""),
                 "currency_code": jar.get("currencyCode"),
-                "balance": jar.get("balance", 0) / 100.0,
-                "goal": jar.get("goal", 0) / 100.0,
+                "balance": (jar.get("balance") or 0) / 100.0,
+                "goal": (jar.get("goal") or 0) / 100.0,
             })
         await queries.set_mono_token(
             db, telegram_id, token,
