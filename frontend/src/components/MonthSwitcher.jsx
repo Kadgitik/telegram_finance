@@ -4,12 +4,15 @@ import { formatMonthLabel, parseMonthKey, shiftMonth } from "../utils/month";
 
 function buildMonthList(current, count = 24) {
   const items = [];
-  const start = shiftMonth(current, -Math.floor(count / 2));
+  const today = new Date();
+  const realCurrent = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const start = current && current > realCurrent ? current : realCurrent;
+  
   for (let i = 0; i < count; i += 1) {
-    const key = shiftMonth(start, i);
+    const key = shiftMonth(start, -i);
     items.push(key);
   }
-  return items.reverse();
+  return items;
 }
 
 export default function MonthSwitcher({ month, onChange, subtitle = "", periodLabel = "", compact = false }) {

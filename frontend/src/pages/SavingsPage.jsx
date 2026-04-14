@@ -257,22 +257,32 @@ export default function SavingsPage() {
                   className="overflow-hidden"
                 >
                   <div className="rounded-[24px] bg-[#1C1C1E] p-5 space-y-3 border border-[#10b981]/20">
-                    <div className="flex bg-black/40 rounded-[16px] border border-white/5 overflow-hidden">
-                      <input
-                        type="number"
-                        className="w-full px-4 py-3 bg-transparent text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
-                        placeholder="Сума (наприклад: 1000)"
-                        value={savingAmount}
-                        onChange={(e) => setSavingAmount(e.target.value)}
-                        autoFocus
-                      />
-                      <button 
-                         onClick={() => setSavingCurrency(savingCurrency === "UAH" ? "USD" : "UAH")}
-                         className="px-4 py-3 font-bold text-[#34d399] bg-white/5 border-l border-white/5 active:bg-white/10 transition-colors"
-                      >
-                         {savingCurrency === "UAH" ? "₴" : "$"}
-                      </button>
+                    <div className="flex bg-black/40 rounded-[14px] p-1 border border-white/5">
+                       <button
+                         onClick={() => setSavingCurrency("UAH")}
+                         className={`flex-1 py-2 rounded-[10px] text-sm font-bold transition-colors ${
+                           savingCurrency === "UAH" ? "bg-[#10b981] text-white shadow" : "text-white/40 active:bg-white/5"
+                         }`}
+                       >
+                         UAH
+                       </button>
+                       <button
+                         onClick={() => setSavingCurrency("USD")}
+                         className={`flex-1 py-2 rounded-[10px] text-sm font-bold transition-colors ${
+                           savingCurrency === "USD" ? "bg-[#10b981] text-white shadow" : "text-white/40 active:bg-white/5"
+                         }`}
+                       >
+                         USD
+                       </button>
                     </div>
+                    <input
+                      type="number"
+                      className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
+                      placeholder="Сума (наприклад: 1000)"
+                      value={savingAmount}
+                      onChange={(e) => setSavingAmount(e.target.value)}
+                      autoFocus
+                    />
                     <input
                       className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
                       placeholder="Коментар (необов'язково)"

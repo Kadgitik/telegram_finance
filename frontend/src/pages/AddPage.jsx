@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/constants";
@@ -21,10 +22,12 @@ export default function AddPage() {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [currency, setCurrency] = useState("UAH");
   const savingRef = useRef(false);
   const { initData } = useTelegram();
   const h = useHaptic();
   const nav = useNavigate();
+  const usdRate = useFxRate();
 
   const categories = useMemo(
     () => (kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES),
@@ -76,9 +79,29 @@ export default function AddPage() {
       </div>
 
       {/* Amount display */}
-      <div className="text-center text-5xl font-bold my-6">
-        {amountStr || "0"}{" "}
-        <span className="text-2xl text-[var(--app-hint)]">₴</span>
+      <div className="text-center text-5xl font-bold mt-4 mb-3">
+        <div className="flex items-center justify-center gap-2">
+           <span>{amountStr || "0"}</span>
+           <span className="text-3xl text-[var(--app-hint)]">{currency === "UAH" ? "₴" : "$"}</span>
+        </div>
+      </div>
+
+      {/* Currency toggle */}
+      <div className="flex justify-center mb-6">
+        <div className="flex bg-[var(--app-secondary)] rounded-[14px] p-1 shadow-inner">
+           <button
+             onClick={() => { setCurrency("UAH"); h.light(); }}
+             className={`px-5 py-1.5 rounded-[10px] text-[13px] font-bold transition-colors ${currency === "UAH" ? "bg-[#10b981] text-white shadow" : "text-[var(--app-hint)] active:bg-white/5"}`}
+           >
+             UAH
+           </button>
+           <button
+             onClick={() => { setCurrency("USD"); h.light(); }}
+             className={`px-5 py-1.5 rounded-[10px] text-[13px] font-bold transition-colors ${currency === "USD" ? "bg-[#10b981] text-white shadow" : "text-[var(--app-hint)] active:bg-white/5"}`}
+           >
+             USD
+           </button>
+        </div>
       </div>
 
       {/* Numpad */}
@@ -140,12 +163,24 @@ export default function AddPage() {
           if (!initData || amount <= 0 || savingRef.current) return;
           savingRef.current = true;
           setSaving(true);
+          
+          let finalAmount = amount;
+          let originalAmount = undefined;
+          let originalCurrency = undefined;
+          if (currency === "USD") {
+             originalAmount = amount;
+             originalCurrency = "USD";
+             finalAmount = amount * usdRate;
+          }
+          
           try {
             await api.post("/transactions", initData, {
               type: kind,
-              amount,
+              amount: finalAmount,
               category: category || "Інше",
               description,
+              original_amount: originalAmount,
+              original_currency: originalCurrency,
             });
             h.success();
             setTimeout(() => nav(-1), 100);

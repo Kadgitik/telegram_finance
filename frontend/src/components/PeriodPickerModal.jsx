@@ -5,12 +5,16 @@ import { formatMonthLabel, shiftMonth } from "../utils/month";
 
 function buildMonthList(current, count = 24) {
   const items = [];
-  const start = shiftMonth(current, -Math.floor(count / 2));
+  // Ensure we don't show future months by starting from the current real-world month
+  const today = new Date();
+  const realCurrent = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const start = current && current > realCurrent ? current : realCurrent;
+  
   for (let i = 0; i < count; i += 1) {
-    const key = shiftMonth(start, i);
+    const key = shiftMonth(start, -i);
     items.push(key);
   }
-  return items.reverse();
+  return items;
 }
 
 export default function PeriodPickerModal({
@@ -131,24 +135,24 @@ export default function PeriodPickerModal({
                   <button onClick={() => setRangeDays(90)} className="px-3 py-1.5 rounded-lg bg-white/5 text-xs font-semibold hover:bg-white/10 active:bg-white/20 transition-colors border border-white/5">90 днів</button>
                 </div>
                 
-                <div className="flex gap-4">
-                  <div className="flex-1">
+                <div className="flex flex-col gap-4">
+                  <div>
                     <label className="block text-[12px] font-bold text-white/50 uppercase mb-2 pl-1">Від</label>
                     <input
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full bg-[#2C2C2E] border border-transparent rounded-2xl px-3 py-3.5 text-[15px] font-medium text-white shadow-inner focus:outline-none focus:border-[#10b981] transition-colors"
+                      className="w-full bg-[#2C2C2E] border border-transparent rounded-2xl px-3 py-3 text-[15px] font-medium text-white shadow-inner focus:outline-none focus:border-[#10b981] transition-colors"
                       style={{ colorScheme: "dark" }}
                     />
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <label className="block text-[12px] font-bold text-white/50 uppercase mb-2 pl-1">До</label>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full bg-[#2C2C2E] border border-transparent rounded-2xl px-3 py-3.5 text-[15px] font-medium text-white shadow-inner focus:outline-none focus:border-[#10b981] transition-colors"
+                      className="w-full bg-[#2C2C2E] border border-transparent rounded-2xl px-3 py-3 text-[15px] font-medium text-white shadow-inner focus:outline-none focus:border-[#10b981] transition-colors"
                       style={{ colorScheme: "dark" }}
                     />
                   </div>
