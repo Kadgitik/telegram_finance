@@ -100,7 +100,7 @@ async def get_statement(
     path = f"/personal/statement/{account}/{from_ts}"
     if to_ts is not None:
         path += f"/{to_ts}"
-    return await _request("GET", path, token, rate_limit_key="statement")
+    return await _request("GET", path, token, rate_limit_key=f"statement_{account}")
 
 
 async def set_webhook(token: str, webhook_url: str) -> dict:
