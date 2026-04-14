@@ -13,6 +13,7 @@ export default function SavingsPage() {
   // Free savings state
   const [savingsTotal, setSavingsTotal] = useState(0);
   const [savingsHistory, setSavingsHistory] = useState([]);
+  const [monoSavings, setMonoSavings] = useState([]);
   const [showAddSaving, setShowAddSaving] = useState(false);
   const [savingAmount, setSavingAmount] = useState("");
   const [savingComment, setSavingComment] = useState("");
@@ -45,6 +46,7 @@ export default function SavingsPage() {
         const cached = JSON.parse(cacheS);
         setSavingsTotal(cached.total || 0);
         setSavingsHistory(cached.history || []);
+        setMonoSavings(cached.mono_savings || []);
       } catch(e) {}
     }
 
@@ -56,6 +58,7 @@ export default function SavingsPage() {
       setGoals(rG.items || []);
       setSavingsTotal(rS.total || 0);
       setSavingsHistory(rS.history || []);
+      setMonoSavings(rS.mono_savings || []);
       localStorage.setItem("goalsCache", JSON.stringify(rG.items || []));
       localStorage.setItem("savingsCache", JSON.stringify(rS));
     } catch(e) {}
@@ -271,6 +274,27 @@ export default function SavingsPage() {
               )}
             </AnimatePresence>
 
+            {/* Mono Savings */}
+            {monoSavings && monoSavings.length > 0 && (
+              <div className="space-y-2 mb-4">
+                <p className="text-[12px] font-semibold text-white/40 uppercase tracking-widest pl-2 mb-2 pt-2">З Банки Monobank</p>
+                {monoSavings.map(s => (
+                  <div key={s.id} className="flex items-center gap-4 bg-[#1C1C1E]/60 backdrop-blur-md border border-[#10b981]/30 p-4 rounded-[20px]">
+                    <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center shrink-0">
+                      <span>🏦</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[15px] text-white/90 truncate">{s.name}</p>
+                      <p className="text-[11px] text-[#34d399] mt-0.5 font-medium">Банка (немає цілі)</p>
+                    </div>
+                    <div className="text-right">
+                       <p className="font-bold text-[16px] text-white drop-shadow-md">{formatMoney(s.amount).replace(" ₴", "")} ₴</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Savings History */}
             <div className="space-y-2">
               {savingsHistory.map((s, i) => (
@@ -302,7 +326,7 @@ export default function SavingsPage() {
                 </motion.div>
               ))}
               
-              {savingsHistory.length === 0 && (
+              {savingsHistory.length === 0 && monoSavings.length === 0 && (
                 <p className="text-center text-[13px] text-white/30 py-8 font-medium">
                   Поки немає вільних накопичень. Натисніть «Додати» щоб відкласти гроші.
                 </p>
@@ -385,15 +409,19 @@ export default function SavingsPage() {
                     
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="text-[17px] font-bold text-white/95 tracking-tight">{g.name}</h3>
+                        <h3 className="text-[17px] font-bold text-white/95 tracking-tight flex items-center gap-2">
+                           {g.name} {g.is_mono && <span className="text-[10px] uppercase font-bold tracking-widest text-black bg-[#10b981] px-2 py-0.5 rounded-full">Mono</span>}
+                        </h3>
                         <p className="text-[12px] text-white/40 mt-1 font-medium">{formatMoney(g.current_amount)} ₴ із {formatMoney(g.target_amount)} ₴</p>
                       </div>
-                      <button 
-                        onClick={() => handleDeleteGoal(g.id)}
-                        className="p-2 -mr-2 rounded-full hover:bg-red-500/10 active:bg-red-500/20 text-red-400/50 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {!g.is_mono && (
+                        <button 
+                          onClick={() => handleDeleteGoal(g.id)}
+                          className="p-2 -mr-2 rounded-full hover:bg-red-500/10 active:bg-red-500/20 text-red-400/50 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
 
                     <div className="h-2 w-full bg-black/40 rounded-full mb-2 overflow-hidden">
@@ -405,7 +433,7 @@ export default function SavingsPage() {
                     <p className="text-[11px] text-white/30 font-medium mb-4">{Math.round(progressPct)}% від цілі</p>
 
                     <AnimatePresence mode="wait">
-                      {!isAdding ? (
+                      {!g.is_mono && !isAdding && (
                         <motion.button 
                           initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                           onClick={() => setActiveGoal(g)}
@@ -413,7 +441,8 @@ export default function SavingsPage() {
                         >
                           <Plus size={16}/> Поповнити ціль
                         </motion.button>
-                      ) : (
+                      )}
+                      {!g.is_mono && isAdding && (
                         <motion.div 
                           initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                           className="flex gap-2"

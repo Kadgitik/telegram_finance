@@ -61,6 +61,7 @@ async def set_mono_token(
     token: str,
     client_id: str | None = None,
     accounts: list | None = None,
+    jars: list | None = None,
 ) -> None:
     update: dict[str, Any] = {
         "mono_token": security_service.encrypt_token(token) if token else None,
@@ -70,6 +71,8 @@ async def set_mono_token(
         update["mono_client_id"] = client_id
     if accounts is not None:
         update["mono_accounts"] = accounts
+    if jars is not None:
+        update["mono_jars"] = jars
     await db["users"].update_one(
         {"telegram_id": telegram_id},
         {"$set": update},
@@ -102,6 +105,7 @@ async def disconnect_mono(db: AsyncIOMotorDatabase, telegram_id: int) -> None:
                 "mono_token": None,
                 "mono_client_id": None,
                 "mono_accounts": [],
+                "mono_jars": [],
                 "mono_webhook_set": False,
                 "default_account": None,
                 "updated_at": datetime.now(timezone.utc),
