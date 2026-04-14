@@ -1,6 +1,17 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Calendar } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { formatMonthLabel, shiftMonth } from "../utils/month";
+
+function buildMonthList(current, count = 24) {
+  const items = [];
+  const start = shiftMonth(current, -Math.floor(count / 2));
+  for (let i = 0; i < count; i += 1) {
+    const key = shiftMonth(start, i);
+    items.push(key);
+  }
+  return items.reverse();
+}
 
 export default function PeriodPickerModal({
   isOpen,
@@ -11,15 +22,27 @@ export default function PeriodPickerModal({
   onApply,
 }) {
   const [tab, setTab] = useState(currentPeriodType); // 'month' or 'custom'
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth || "");
   const [startDate, setStartDate] = useState(currentRange?.start || "");
   const [endDate, setEndDate] = useState(currentRange?.end || "");
+
+  useEffect(() => {
+    if (isOpen) {
+      setTab(currentPeriodType);
+      setSelectedMonth(currentMonth || "");
+      setStartDate(currentRange?.start || "");
+      setEndDate(currentRange?.end || "");
+    }
+  }, [isOpen, currentPeriodType, currentMonth, currentRange]);
+
+  const monthList = useMemo(() => buildMonthList(currentMonth || "2024-01", 24), [currentMonth]);
 
   const handleApply = () => {
     if (tab === "custom") {
       if (!startDate || !endDate) return;
       onApply("custom", { start: startDate, end: endDate });
     } else {
-      onApply("month"); // will revert to month
+      onApply("month", selectedMonth);
     }
   };
 
@@ -85,8 +108,20 @@ export default function PeriodPickerModal({
             </div>
 
             {tab === "month" ? (
-              <div className="py-8 text-center text-white/50 text-sm">
-                Повернутися до стандартного вибору фінансових місяців.
+              <div className="space-y-2 mb-4 max-h-64 overflow-y-auto pr-1">
+                {monthList.map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedMonth(key)}
+                    className={`w-full text-left px-4 py-3 rounded-2xl transition-colors font-medium ${
+                      key === selectedMonth
+                        ? "bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30"
+                        : "bg-black/20 text-white/70 hover:bg-black/40 border border-transparent"
+                    }`}
+                  >
+                    {formatMonthLabel(key)}
+                  </button>
+                ))}
               </div>
             ) : (
               <div className="space-y-4">
@@ -123,7 +158,7 @@ export default function PeriodPickerModal({
 
             <button
               onClick={handleApply}
-              disabled={tab === "custom" && (!startDate || !endDate)}
+              disabled={(tab === "custom" && (!startDate || !endDate)) || (tab === "month" && !selectedMonth)}
               className="w-full mt-8 bg-gradient-to-r from-[#059669] to-[#34d399] text-white font-bold py-4 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50 disabled:grayscale"
             >
               Застосувати
