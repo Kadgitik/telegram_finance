@@ -71,8 +71,10 @@ async def set_mono_token(
         update["mono_client_id"] = client_id
     if accounts is not None:
         update["mono_accounts"] = accounts
+        update["mono_synced_at"] = datetime.now(timezone.utc)
     if jars is not None:
         update["mono_jars"] = jars
+        update["mono_synced_at"] = datetime.now(timezone.utc)
     await db["users"].update_one(
         {"telegram_id": telegram_id},
         {"$set": update},

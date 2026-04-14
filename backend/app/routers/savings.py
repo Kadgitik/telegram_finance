@@ -9,7 +9,11 @@ from backend.app.deps import telegram_user_id
 from backend.app.models.schemas import SavingsCreate, GoalCreate, GoalDeposit
 from bot.db import queries
 from bot.db.mongo import get_db
+from bot.services import monobank
 from motor.motor_asyncio import AsyncIOMotorDatabase
+import logging
+
+_LOGGER = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -28,6 +32,58 @@ def _out(doc: dict) -> dict:
         "created_at": doc["created_at"].isoformat(),
     }
 
+async def _jit_refresh_mono(db: AsyncIOMotorDatabase, user: dict | None) -> dict | None:
+    if not user: return user
+    token = user.get("mono_token")
+    if not token: return user
+    
+    synced_at = user.get("mono_synced_at")
+    if synced_at:
+        if synced_at.tzinfo is None:
+            synced_at = synced_at.replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - synced_at).total_seconds() < 300:
+            return user
+
+    try:
+        info = await monobank.get_client_info(token)
+        accounts_out = []
+        for acc in info.get("accounts", []):
+            accounts_out.append({
+                "id": acc.get("id"),
+                "type": acc.get("type"),
+                "currency_code": acc.get("currencyCode"),
+                "balance": (acc.get("balance") or 0) / 100.0,
+                "credit_limit": (acc.get("creditLimit") or 0) / 100.0,
+                "masked_pan": acc.get("maskedPan", []),
+                "iban": acc.get("iban"),
+                "cashback_type": acc.get("cashbackType"),
+            })
+
+        jars_out = []
+        for jar in info.get("jars", []):
+            jars_out.append({
+                "id": jar.get("id"),
+                "title": jar.get("title", "Банка"),
+                "description": jar.get("description", ""),
+                "currency_code": jar.get("currencyCode"),
+                "balance": (jar.get("balance") or 0) / 100.0,
+                "goal": (jar.get("goal") or 0) / 100.0,
+            })
+            
+        await queries.set_mono_token(
+            db, user["telegram_id"], token,
+            client_id=info.get("clientId"),
+            accounts=accounts_out,
+            jars=jars_out,
+        )
+        user = await queries.get_user(db, user["telegram_id"])
+    except Exception as e:
+        _LOGGER.warning("Smart auto-sync failed: %s", e)
+        
+    return user
+
+
+
 
 @router.get("/savings")
 async def get_savings(
@@ -38,6 +94,7 @@ async def get_savings(
     total = await queries.savings_total(db, telegram_id)
     
     user = await queries.get_user(db, telegram_id)
+    user = await _jit_refresh_mono(db, user)
     mono_jars = user.get("mono_jars", []) if user else []
     
     mono_savings = []
@@ -106,6 +163,7 @@ async def get_goals(
 ) -> dict:
     rows = await queries.list_goals(db, telegram_id)
     user = await queries.get_user(db, telegram_id)
+    user = await _jit_refresh_mono(db, user)
     mono_jars = user.get("mono_jars", []) if user else []
     
     items = [_goal_out(x) for x in rows]
