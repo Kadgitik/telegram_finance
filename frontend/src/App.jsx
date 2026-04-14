@@ -10,8 +10,8 @@ import HomePage from "./pages/HomePage";
 import SavingsPage from "./pages/SavingsPage";
 import SettingsPage from "./pages/SettingsPage";
 import StatsPage from "./pages/StatsPage";
+import DebtsPage from "./pages/DebtsPage";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
-
 function AppRoutes() {
   const loc = useLocation();
   const nav = useNavigate();
@@ -66,6 +66,7 @@ function AppRoutes() {
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/savings" element={<SavingsPage />} />
+        <Route path="/debts" element={<DebtsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
       {!hideNav && <BottomNav />}

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, Settings } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Settings, HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
@@ -186,6 +186,32 @@ export default function HomePage() {
             </motion.div>
           </Link>
         </div>
+        
+        <div className="mt-3">
+          <Link to="/debts" onClick={() => h.light()} className="block">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, type: "spring", stiffness: 300, damping: 20 }}
+              whileTap={{ scale: 0.98 }}
+              className="rounded-2xl p-3 border border-[#6366f1]/25 flex items-center justify-between overflow-hidden relative"
+              style={{
+                background: "linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(99,102,241,0.05) 100%)",
+              }}
+            >
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-8 h-8 rounded-full bg-[#6366f1]/20 flex items-center justify-center">
+                  <HandCoins size={16} className="text-[#818cf8]" />
+                </div>
+                <div>
+                   <p className="text-[14px] font-semibold text-[#c7d2fe] leading-tight">Борги та Позички</p>
+                   <p className="text-[11px] font-medium text-white/40 leading-none mt-1">Хто винен мені / Кому винен я</p>
+                </div>
+              </div>
+            </motion.div>
+          </Link>
+        </div>
+
       </div>
 
       {/* ── Recent Transactions (bottom sheet) ── */}
