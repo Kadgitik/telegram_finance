@@ -197,21 +197,31 @@ export default function DebtsPage() {
                     onChange={(e) => setDebtContact(e.target.value)}
                     autoFocus
                 />
-                <div className="flex bg-black/40 rounded-[16px] border border-white/5 overflow-hidden">
-                  <input
-                      type="number"
-                      className="w-full px-4 py-3 bg-transparent text-[15px] placeholder:text-white/30 focus:border-[#6366f1]/50 outline-none transition-colors"
-                      placeholder="Сума боргу (напр. 500)"
-                      value={debtAmount}
-                      onChange={(e) => setDebtAmount(e.target.value)}
-                  />
-                  <button 
-                      onClick={() => setDebtCurrency(debtCurrency === "UAH" ? "USD" : "UAH")}
-                      className="px-4 py-3 font-bold text-[#818cf8] bg-white/5 border-l border-white/5 active:bg-white/10 transition-colors"
-                  >
-                      {debtCurrency === "UAH" ? "₴" : "$"}
-                  </button>
+                <div className="flex bg-black/40 rounded-[14px] p-1 border border-white/5">
+                   <button
+                     onClick={() => setDebtCurrency("UAH")}
+                     className={`flex-1 py-2 rounded-[10px] text-sm font-bold transition-colors ${
+                       debtCurrency === "UAH" ? "bg-[#6366f1] text-white shadow" : "text-white/40 active:bg-white/5"
+                     }`}
+                   >
+                     UAH
+                   </button>
+                   <button
+                     onClick={() => setDebtCurrency("USD")}
+                     className={`flex-1 py-2 rounded-[10px] text-sm font-bold transition-colors ${
+                       debtCurrency === "USD" ? "bg-[#6366f1] text-white shadow" : "text-white/40 active:bg-white/5"
+                     }`}
+                   >
+                     USD
+                   </button>
                 </div>
+                <input
+                    type="number"
+                    className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#6366f1]/50 outline-none transition-colors"
+                    placeholder="Сума боргу (напр. 500)"
+                    value={debtAmount}
+                    onChange={(e) => setDebtAmount(e.target.value)}
+                />
                 <input
                     className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#6366f1]/50 outline-none transition-colors"
                     placeholder="Коментар (необов'язково)"

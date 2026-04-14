@@ -11,6 +11,8 @@ class TransactionCreate(BaseModel):
     category: str
     description: str = ""
     comment: str = ""
+    original_amount: float | None = None
+    original_currency: str | None = None
 
 
 class MonoConnectRequest(BaseModel):

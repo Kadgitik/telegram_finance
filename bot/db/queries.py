@@ -128,7 +128,7 @@ async def add_transaction(
     comment: str | None = None,
     mono_id: str | None = None,
     original_amount: float | None = None,
-    currency_code: int | None = None,
+    currency_code: int | str | None = None,
     mcc: int | None = None,
     cashback: float = 0.0,
     balance_after: float | None = None,

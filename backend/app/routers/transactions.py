@@ -74,6 +74,8 @@ async def create_transaction(
         category=body.category,
         description=body.description,
         comment=body.comment or None,
+        original_amount=body.original_amount,
+        currency_code=body.original_currency,
     )
     doc = await queries.get_transaction(db, telegram_id, oid)
     assert doc
