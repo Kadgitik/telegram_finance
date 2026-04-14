@@ -23,6 +23,8 @@ def _out(doc: dict) -> dict:
         "id": str(doc["_id"]),
         "amount": float(doc["amount"]),
         "comment": doc.get("comment", ""),
+        "original_amount": float(doc["original_amount"]) if "original_amount" in doc else None,
+        "original_currency": doc.get("original_currency"),
         "created_at": doc["created_at"].isoformat(),
     }
 
@@ -65,7 +67,7 @@ async def add_savings(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
-    oid = await queries.add_saving(db, telegram_id, body.amount, body.comment)
+    oid = await queries.add_saving(db, telegram_id, body.amount, body.comment, body.original_amount, body.original_currency)
     doc = await db["savings"].find_one({"_id": oid})
     assert doc
     return _out(doc)
