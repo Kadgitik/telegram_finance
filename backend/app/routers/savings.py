@@ -41,7 +41,7 @@ async def _jit_refresh_mono(db: AsyncIOMotorDatabase, user: dict | None) -> dict
     if synced_at:
         if synced_at.tzinfo is None:
             synced_at = synced_at.replace(tzinfo=timezone.utc)
-        if (datetime.now(timezone.utc) - synced_at).total_seconds() < 300:
+        if (datetime.now(timezone.utc) - synced_at).total_seconds() < 65:
             return user
 
     try:
