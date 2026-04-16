@@ -4,16 +4,23 @@ import { useTelegram } from "./useTelegram";
 
 export function useFxRate() {
   const { initData } = useTelegram();
-  const [rate, setRate] = useState(null);
+  const [rate, setRate] = useState(() => {
+    const cached = localStorage.getItem("fx_usd_uah");
+    return cached ? Number(cached) : null;
+  });
 
   useEffect(() => {
     if (!initData) return;
     api
       .get("/fx/usd-uah", initData)
       .then((r) => {
-        setRate(Number(r?.rate) || null);
+        const val = Number(r?.rate);
+        if (val) {
+          setRate(val);
+          localStorage.setItem("fx_usd_uah", val.toString());
+        }
       })
-      .catch(() => setRate(null));
+      .catch(() => {});
   }, [initData]);
 
   return rate;
