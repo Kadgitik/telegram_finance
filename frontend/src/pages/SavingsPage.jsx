@@ -5,7 +5,7 @@ import { api } from "../api/client";
 import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
-import { formatMoney } from "../utils/formatters";
+import { formatMoney, formatUsdApprox } from "../utils/formatters";
 
 export default function SavingsPage() {
   const { initData } = useTelegram();
@@ -212,15 +212,22 @@ export default function SavingsPage() {
             <p className="text-[15px] font-medium text-white/50">Всього накопичено</p>
           </div>
           <p className="text-4xl font-extrabold tracking-tight">{formatMoney(grandTotal).replace(" ₴", "")} <span className="text-2xl text-white/50">₴</span></p>
+          {usdRate ? (
+            <p className="text-[#34d399] text-sm font-medium mt-1.5 opacity-80">
+              {formatUsdApprox(grandTotal, usdRate)}
+            </p>
+          ) : null}
           
           <div className="flex gap-4 mt-4">
             <div className="flex-1 rounded-[16px] bg-white/5 p-3">
               <p className="text-[11px] text-white/40 font-medium mb-1">Вільні</p>
               <p className="text-[16px] font-bold tracking-tight text-[#34d399]">{formatMoney(savingsTotal).replace(" ₴", "")} ₴</p>
+              {usdRate ? <p className="text-[10px] text-[#34d399]/60 font-medium mt-0.5">{formatUsdApprox(savingsTotal, usdRate)}</p> : null}
             </div>
             <div className="flex-1 rounded-[16px] bg-white/5 p-3">
               <p className="text-[11px] text-white/40 font-medium mb-1">У цілях</p>
               <p className="text-[16px] font-bold tracking-tight text-[#10b981]">{formatMoney(totalGoalsProgress).replace(" ₴", "")} ₴</p>
+              {usdRate ? <p className="text-[10px] text-[#10b981]/60 font-medium mt-0.5">{formatUsdApprox(totalGoalsProgress, usdRate)}</p> : null}
             </div>
           </div>
         </motion.div>
