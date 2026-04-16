@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { PiggyBank, Plus, Target, Trash2, Wallet } from "lucide-react";
+import { PiggyBank, Plus, Minus, Target, Trash2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useFxRate } from "../hooks/useFxRate";
@@ -15,8 +15,7 @@ export default function SavingsPage() {
   const [savingsTotal, setSavingsTotal] = useState(0);
   const [savingsHistory, setSavingsHistory] = useState([]);
   const [monoSavings, setMonoSavings] = useState([]);
-  const [showAddSaving, setShowAddSaving] = useState(false);
-  const [savingAction, setSavingAction] = useState("deposit");
+  const [savingAction, setSavingAction] = useState("none");
   const [savingAmount, setSavingAmount] = useState("");
   const [savingCurrency, setSavingCurrency] = useState("UAH");
   const [savingComment, setSavingComment] = useState("");
@@ -31,6 +30,7 @@ export default function SavingsPage() {
   const [savingGoal, setSavingGoal] = useState(false);
 
   const [activeGoal, setActiveGoal] = useState(null);
+  const [activeGoalAction, setActiveGoalAction] = useState("deposit");
   const [depositAmount, setDepositAmount] = useState("");
   const [depositing, setDepositing] = useState(false);
 
@@ -103,7 +103,7 @@ export default function SavingsPage() {
       h.success();
       setSavingAmount("");
       setSavingComment("");
-      setShowAddSaving(false);
+      setSavingAction("none");
       await load();
     } catch {
       h.error();
@@ -256,39 +256,33 @@ export default function SavingsPage() {
               <p className="text-[15px] font-semibold text-white/80 flex items-center gap-2">
                 <Wallet size={18} className="text-[#34d399]"/> Вільні накопичення
               </p>
-              <button 
-                onClick={() => setShowAddSaving(!showAddSaving)}
-                className="text-[#10b981] text-sm font-semibold flex items-center gap-1 active:opacity-70"
-              >
-                <Plus size={16}/> Додати
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setSavingAction(savingAction === "withdraw" ? "none" : "withdraw")}
+                  className={`px-3 py-1.5 rounded-[12px] text-xs font-semibold flex items-center gap-1 transition-colors ${
+                    savingAction === "withdraw" ? "bg-red-500 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  <Minus size={14}/> Зняти
+                </button>
+                <button 
+                  onClick={() => setSavingAction(savingAction === "deposit" ? "none" : "deposit")}
+                  className={`px-3 py-1.5 rounded-[12px] text-xs font-semibold flex items-center gap-1 transition-colors ${
+                    savingAction === "deposit" ? "bg-[#10b981] text-white" : "bg-[#10b981]/20 text-[#34d399] hover:bg-[#10b981]/30"
+                  }`}
+                >
+                  <Plus size={14}/> Відкласти
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
-              {showAddSaving && (
+              {savingAction !== "none" && (
                 <motion.div 
                   initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="rounded-[24px] bg-[#1C1C1E] p-5 space-y-3 border border-[#10b981]/20">
-                    <div className="flex bg-black/40 rounded-[14px] p-1 border border-white/5">
-                       <button
-                         onClick={() => setSavingAction("deposit")}
-                         className={`flex-1 py-1.5 rounded-[10px] text-[13px] font-bold transition-colors ${
-                           savingAction === "deposit" ? "bg-[#10b981] text-white shadow" : "text-white/40 active:bg-white/5"
-                         }`}
-                       >
-                         Поповнити
-                       </button>
-                       <button
-                         onClick={() => setSavingAction("withdraw")}
-                         className={`flex-1 py-1.5 rounded-[10px] text-[13px] font-bold transition-colors ${
-                           savingAction === "withdraw" ? "bg-red-500 text-white shadow" : "text-white/40 active:bg-white/5"
-                         }`}
-                       >
-                         Зняти
-                       </button>
-                    </div>
+                  <div className={`rounded-[24px] bg-[#1C1C1E] p-5 space-y-3 mt-3 border ${savingAction === "withdraw" ? "border-red-500/20" : "border-[#10b981]/20"}`}>
                     <div className="flex bg-black/40 rounded-[14px] p-1 border border-white/5">
                        <button
                          onClick={() => setSavingCurrency("UAH")}
@@ -323,7 +317,7 @@ export default function SavingsPage() {
                     />
                     <div className="flex gap-2 pt-2">
                       <button
-                        onClick={() => setShowAddSaving(false)}
+                        onClick={() => setSavingAction("none")}
                         className="flex-1 py-3 rounded-[16px] bg-white/5 text-sm font-medium active:bg-white/10"
                       >
                         Скасувати
@@ -333,7 +327,7 @@ export default function SavingsPage() {
                         disabled={addingSaving || !savingAmount}
                         className={`flex-1 py-3 rounded-[16px] text-white text-sm font-bold disabled:opacity-50 active:scale-95 transition-transform ${savingAction === "withdraw" ? "bg-red-500" : "bg-[#10b981]"}`}
                       >
-                        {addingSaving ? "Оновлення..." : (savingAction === "withdraw" ? "Зняти" : "Зберегти")}
+                        {addingSaving ? "Зачекайте..." : (savingAction === "withdraw" ? "Зняти кошти" : "Поповнити")}
                       </button>
                     </div>
                   </div>
@@ -506,13 +500,23 @@ export default function SavingsPage() {
 
                     <AnimatePresence mode="wait">
                       {!g.is_mono && !isAdding && (
-                        <motion.button 
+                        <motion.div 
                           initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                          onClick={() => setActiveGoal(g)}
-                          className="w-full py-3 rounded-[16px] bg-white/5 hover:bg-white/10 active:scale-[0.98] transition-all text-sm font-semibold flex items-center justify-center gap-1.5 text-[#34d399]"
+                          className="flex gap-2"
                         >
-                          <Plus size={16}/> Поповнити / Зняти
-                        </motion.button>
+                          <button 
+                            onClick={() => { setActiveGoal(g); setActiveGoalAction("withdraw"); }}
+                            className="flex-1 py-2.5 rounded-[16px] bg-red-400/10 text-red-400 hover:bg-red-400/20 active:scale-[0.98] transition-all text-sm font-semibold flex items-center justify-center gap-1.5"
+                          >
+                            <Minus size={16}/> Зняти
+                          </button>
+                          <button 
+                            onClick={() => { setActiveGoal(g); setActiveGoalAction("deposit"); }}
+                            className="flex-1 py-2.5 rounded-[16px] bg-[#10b981]/15 text-[#34d399] hover:bg-[#10b981]/25 active:scale-[0.98] transition-all text-sm font-semibold flex items-center justify-center gap-1.5"
+                          >
+                            <Plus size={16}/> Поповнити
+                          </button>
+                        </motion.div>
                       )}
                       {!g.is_mono && isAdding && (
                         <motion.div 
@@ -521,25 +525,18 @@ export default function SavingsPage() {
                         >
                            <input
                              type="number"
-                             className="flex-1 rounded-[16px] px-3 py-2 bg-black/40 border border-[#10b981]/30 text-[14px] outline-none"
-                             placeholder="Сума поповнення"
+                             className={`flex-1 rounded-[16px] px-3 py-2 bg-black/40 border text-[14px] outline-none transition-colors ${activeGoalAction === "withdraw" ? "border-red-500/30 focus:border-red-500/70" : "border-[#10b981]/30 focus:border-[#10b981]/70"}`}
+                             placeholder={activeGoalAction === "withdraw" ? "Сума зняття" : "Сума поповнення"}
                              value={depositAmount}
                              onChange={(e) => setDepositAmount(e.target.value)}
                              autoFocus
                            />
                            <button 
-                             onClick={() => handleDeposit("deposit")}
+                             onClick={() => handleDeposit(activeGoalAction)}
                              disabled={depositing || !depositAmount}
-                             className="px-4 rounded-[16px] bg-[#10b981] text-white font-semibold disabled:opacity-50 active:scale-95 flex items-center justify-center min-w-[50px]"
+                             className={`px-4 rounded-[16px] text-white font-semibold disabled:opacity-50 active:scale-95 flex items-center justify-center min-w-[50px] transition-colors ${activeGoalAction === "withdraw" ? "bg-red-500/80" : "bg-[#10b981]"}`}
                            >
-                             {depositing ? "..." : <Plus size={20}/>}
-                           </button>
-                           <button 
-                             onClick={() => handleDeposit("withdraw")}
-                             disabled={depositing || !depositAmount}
-                             className="px-4 rounded-[16px] bg-red-500/80 text-white font-semibold disabled:opacity-50 active:scale-95 flex items-center justify-center min-w-[50px]"
-                           >
-                             {depositing ? "..." : <span className="text-2xl leading-none select-none pb-1">−</span>}
+                             {depositing ? "..." : (activeGoalAction === "withdraw" ? <Minus size={20}/> : <Plus size={20}/>)}
                            </button>
                            <button 
                              onClick={() => {setActiveGoal(null); setDepositAmount("");}}
