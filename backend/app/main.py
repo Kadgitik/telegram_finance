@@ -28,6 +28,20 @@ async def lifespan(app: FastAPI):
     get_client()
     db = get_db()
     await ensure_indexes(db)
+    
+    # Run migrations
+    try:
+        import re
+        credit_re = re.compile(r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості", re.IGNORECASE)
+        async for tx in db["transactions"].find({"source": "monobank", "category": {"$ne": "Кредит"}}):
+            desc = tx.get("description", "")
+            if credit_re.search(desc):
+                await db["transactions"].update_one(
+                    {"_id": tx["_id"]},
+                    {"$set": {"category": "Кредит", "internal_transfer": False}}
+                )
+    except Exception as e:
+        _LOGGER.error("Migration failed: %s", e)
     bot = Bot(config.BOT_TOKEN)
     dp = build_dispatcher()
     app.state.bot = bot
