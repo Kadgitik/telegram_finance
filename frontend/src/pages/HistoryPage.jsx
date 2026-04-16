@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
 import { useHaptic } from "../hooks/useHaptic";
@@ -15,7 +16,8 @@ export default function HistoryPage() {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [month, setStoredMonth] = useStoredMonth();
-  const [filter, setFilter] = useState("all");
+  const [searchParams] = useSearchParams();
+  const [filter, setFilter] = useState(searchParams.get("filter") || "all");
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [offset, setOffset] = useState(0);
