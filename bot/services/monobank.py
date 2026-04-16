@@ -28,6 +28,11 @@ _INTERNAL_TRANSFER_RE = re.compile(
     re.IGNORECASE,
 )
 
+_CREDIT_RE = re.compile(
+    r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості",
+    re.IGNORECASE,
+)
+
 BASE_URL = "https://api.monobank.ua"
 
 # Rate-limit: 1 request per 60s per endpoint
@@ -140,6 +145,10 @@ def parse_statement_item(item: dict[str, Any], telegram_id: int) -> dict[str, An
     # MCC 4829 = грошовий переказ — if combined with empty/generic description, likely internal
     if not is_internal and mcc == 4829 and not description:
         is_internal = True
+        
+    if _CREDIT_RE.search(description):
+        category = "Кредит"
+        is_internal = False
 
     return {
         "telegram_id": telegram_id,
