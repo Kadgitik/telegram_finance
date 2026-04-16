@@ -59,13 +59,6 @@ function clearGetCache() {
   inFlightGet.clear();
   try {
     sessionStorage.removeItem(CACHE_STORAGE_KEY);
-    // Також очищуємо кеш головної сторінки в localStorage
-    const toRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith("homeCache_")) toRemove.push(key);
-    }
-    toRemove.forEach(k => localStorage.removeItem(k));
   } catch {
     // ignore storage errors
   }
