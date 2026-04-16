@@ -72,20 +72,18 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col font-sans overflow-x-hidden">
       {/* ── Gradient hero ── */}
-      <div className="relative">
-        {/* Background gradient */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: "linear-gradient(170deg, #7C3AED 0%, #5B21B6 35%, #1e1b4b 65%, #000 100%)",
-          }}
-        />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="absolute top-0 left-0 w-full h-[50vh] pointer-events-none"
+        style={{
+          background: "linear-gradient(180deg, #7C3AED 0%, #5B21B6 30%, #000000 100%)",
+        }}
+      />
 
-        {/* Content on gradient */}
-        <div className="relative z-10 px-5 pb-6">
+      {/* Content on gradient */}
+      <div className="relative z-10 px-5 pb-6">
           {/* Header row: Title + Settings */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -135,12 +133,11 @@ export default function HomePage() {
             ) : null}
           </motion.div>
         </div>
-      </div>
 
       {/* ── Cards section ── */}
       <div className="px-5 -mt-0">
-        <div className="flex gap-3 mb-0">
-          <Link to="/add?type=income" onClick={() => h.light()} className="flex-1 block">
+        <div className="flex gap-3 mb-0 relative z-10">
+          <Link to="/history?filter=income" onClick={() => h.light()} className="flex-1 block">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -163,7 +160,7 @@ export default function HomePage() {
             </motion.div>
           </Link>
 
-          <Link to="/add?type=expense" onClick={() => h.light()} className="flex-1 block">
+          <Link to="/history?filter=expense" onClick={() => h.light()} className="flex-1 block">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
