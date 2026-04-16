@@ -59,13 +59,17 @@ export default function StatsPage() {
     const cKey = periodType === "month" ? month : `${customRange.start}_${customRange.end}`;
     const cacheKeyS = `statsCache_${periodType}_${cKey}`;
     const cacheKeyT = `trendCache_${periodType}_${cKey}`;
-    if (!stats) {
-      const s = localStorage.getItem(cacheKeyS);
-      const t = localStorage.getItem(cacheKeyT);
-      try {
-        if (s) setStats(JSON.parse(s));
-        if (t) setTrend(JSON.parse(t));
-      } catch (e) {}
+    const s = localStorage.getItem(cacheKeyS);
+    const t = localStorage.getItem(cacheKeyT);
+    if (s) {
+      try { setStats(JSON.parse(s)); } catch (e) {}
+    } else {
+      setStats(null);
+    }
+    if (t) {
+      try { setTrend(JSON.parse(t)); } catch (e) {}
+    } else {
+      setTrend(null);
     }
 
     (async () => {
