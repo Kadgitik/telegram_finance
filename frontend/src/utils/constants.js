@@ -19,6 +19,7 @@ import {
   Briefcase,
   Gift,
   Wallet,
+  PiggyBank,
 } from "lucide-react";
 
 export const ACCENT = {
@@ -52,6 +53,7 @@ export const EXPENSE_CATEGORIES = [
   { key: "Освіта", icon: GraduationCap, color: "#64D2FF" },
   { key: "Підписки", icon: CreditCard, color: "#BF5AF2" },
   { key: "Подорожі", icon: Plane, color: "#FF6961" },
+  { key: "Відкладаю гроші", icon: PiggyBank, color: "#10b981" },
   { key: "Інше", icon: MoreHorizontal, color: "#8E8E93" },
 ];
 
