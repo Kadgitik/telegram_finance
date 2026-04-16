@@ -16,6 +16,7 @@ export default function SavingsPage() {
   const [savingsHistory, setSavingsHistory] = useState([]);
   const [monoSavings, setMonoSavings] = useState([]);
   const [showAddSaving, setShowAddSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState("deposit");
   const [savingAmount, setSavingAmount] = useState("");
   const [savingCurrency, setSavingCurrency] = useState("UAH");
   const [savingComment, setSavingComment] = useState("");
@@ -74,7 +75,13 @@ export default function SavingsPage() {
   // Free savings handlers
   const handleAddSaving = async () => {
     let val = parseFloat(savingAmount);
-    if (!initData || !val || val <= 0) return;
+    if (!initData || !val || val === 0) return;
+    
+    if (savingAction === "withdraw") {
+      val = -Math.abs(val);
+    } else {
+      val = Math.abs(val);
+    }
     
     let originalAmount = undefined;
     let originalCurrency = undefined;
@@ -150,9 +157,16 @@ export default function SavingsPage() {
     }
   };
 
-  const handleDeposit = async () => {
-    const val = parseFloat(depositAmount);
-    if (!initData || !val || val <= 0 || !activeGoal) return;
+  const handleDeposit = async (action = "deposit") => {
+    let val = parseFloat(depositAmount);
+    if (!initData || !val || val === 0 || !activeGoal) return;
+    
+    if (action === "withdraw") {
+      val = -Math.abs(val);
+    } else {
+      val = Math.abs(val);
+    }
+    
     setDepositing(true);
     h.light();
     try {
@@ -259,6 +273,24 @@ export default function SavingsPage() {
                   <div className="rounded-[24px] bg-[#1C1C1E] p-5 space-y-3 border border-[#10b981]/20">
                     <div className="flex bg-black/40 rounded-[14px] p-1 border border-white/5">
                        <button
+                         onClick={() => setSavingAction("deposit")}
+                         className={`flex-1 py-1.5 rounded-[10px] text-[13px] font-bold transition-colors ${
+                           savingAction === "deposit" ? "bg-[#10b981] text-white shadow" : "text-white/40 active:bg-white/5"
+                         }`}
+                       >
+                         Поповнити
+                       </button>
+                       <button
+                         onClick={() => setSavingAction("withdraw")}
+                         className={`flex-1 py-1.5 rounded-[10px] text-[13px] font-bold transition-colors ${
+                           savingAction === "withdraw" ? "bg-red-500 text-white shadow" : "text-white/40 active:bg-white/5"
+                         }`}
+                       >
+                         Зняти
+                       </button>
+                    </div>
+                    <div className="flex bg-black/40 rounded-[14px] p-1 border border-white/5">
+                       <button
                          onClick={() => setSavingCurrency("UAH")}
                          className={`flex-1 py-2 rounded-[10px] text-sm font-bold transition-colors ${
                            savingCurrency === "UAH" ? "bg-[#10b981] text-white shadow" : "text-white/40 active:bg-white/5"
@@ -299,9 +331,9 @@ export default function SavingsPage() {
                       <button
                         onClick={handleAddSaving}
                         disabled={addingSaving || !savingAmount}
-                        className="flex-1 py-3 rounded-[16px] bg-[#10b981] text-white text-sm font-bold disabled:opacity-50 active:scale-95 transition-transform"
+                        className={`flex-1 py-3 rounded-[16px] text-white text-sm font-bold disabled:opacity-50 active:scale-95 transition-transform ${savingAction === "withdraw" ? "bg-red-500" : "bg-[#10b981]"}`}
                       >
-                        {addingSaving ? "Збереження..." : "Зберегти"}
+                        {addingSaving ? "Оновлення..." : (savingAction === "withdraw" ? "Зняти" : "Зберегти")}
                       </button>
                     </div>
                   </div>
@@ -342,12 +374,12 @@ export default function SavingsPage() {
                     <Wallet size={18} className="text-[#34d399]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[15px] text-white/90">
-                      +{formatMoney(s.amount).replace(" ₴", "")} ₴
+                    <p className={`font-semibold text-[15px] ${s.amount < 0 ? "text-red-400" : "text-white/90"}`}>
+                      {s.amount > 0 ? "+" : ""}{formatMoney(s.amount).replace(" ₴", "")} ₴
                     </p>
                     {s.original_currency === "USD" && s.original_amount && (
-                      <p className="text-[12px] font-medium text-white/50 mb-0.5">
-                        +{formatMoney(s.original_amount, "USD")}
+                      <p className={`text-[12px] font-medium mb-0.5 ${s.original_amount < 0 ? "text-red-400/70" : "text-white/50"}`}>
+                        {s.original_amount > 0 ? "+" : ""}{formatMoney(s.original_amount, "USD")}
                       </p>
                     )}
                     {s.comment && (
@@ -479,7 +511,7 @@ export default function SavingsPage() {
                           onClick={() => setActiveGoal(g)}
                           className="w-full py-3 rounded-[16px] bg-white/5 hover:bg-white/10 active:scale-[0.98] transition-all text-sm font-semibold flex items-center justify-center gap-1.5 text-[#34d399]"
                         >
-                          <Plus size={16}/> Поповнити ціль
+                          <Plus size={16}/> Поповнити / Зняти
                         </motion.button>
                       )}
                       {!g.is_mono && isAdding && (
@@ -496,11 +528,18 @@ export default function SavingsPage() {
                              autoFocus
                            />
                            <button 
-                             onClick={handleDeposit}
+                             onClick={() => handleDeposit("deposit")}
                              disabled={depositing || !depositAmount}
-                             className="px-4 rounded-[16px] bg-[#10b981] text-white font-semibold disabled:opacity-50 active:scale-95"
+                             className="px-4 rounded-[16px] bg-[#10b981] text-white font-semibold disabled:opacity-50 active:scale-95 flex items-center justify-center min-w-[50px]"
                            >
                              {depositing ? "..." : <Plus size={20}/>}
+                           </button>
+                           <button 
+                             onClick={() => handleDeposit("withdraw")}
+                             disabled={depositing || !depositAmount}
+                             className="px-4 rounded-[16px] bg-red-500/80 text-white font-semibold disabled:opacity-50 active:scale-95 flex items-center justify-center min-w-[50px]"
+                           >
+                             {depositing ? "..." : <span className="text-2xl leading-none select-none pb-1">−</span>}
                            </button>
                            <button 
                              onClick={() => {setActiveGoal(null); setDepositAmount("");}}
