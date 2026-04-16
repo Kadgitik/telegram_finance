@@ -55,11 +55,14 @@ export default function HistoryPage() {
     const cacheKeyTotal = `historyTotal_${month}_${filter}_${search}`;
     const cachedItems = localStorage.getItem(cacheKeyItems);
     const cachedTotal = localStorage.getItem(cacheKeyTotal);
-    if (cachedItems && items.length === 0) {
+    if (cachedItems) {
       try {
         setItems(JSON.parse(cachedItems));
-        if (cachedTotal) setTotal(parseInt(cachedTotal, 10));
+        setTotal(cachedTotal ? parseInt(cachedTotal, 10) : 0);
       } catch (e) {}
+    } else {
+      setItems([]);
+      setTotal(0);
     }
 
     load(true).catch(() => {});

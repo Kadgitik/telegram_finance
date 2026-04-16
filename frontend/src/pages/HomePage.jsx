@@ -28,14 +28,17 @@ export default function HomePage() {
     // Stale-While-Revalidate Cache Setup
     const cacheKey = `homeCache_${month}`;
     const cached = localStorage.getItem(cacheKey);
-    if (cached && tx.length === 0 && !balance) {
+    if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (parsed?.balance) setBalance(parsed.balance);
-        if (parsed?.transactions) setTx(parsed.transactions.items || []);
+        setBalance(parsed?.balance || null);
+        setTx(parsed?.transactions?.items || []);
       } catch (e) {
         // ignore cache err
       }
+    } else {
+      setBalance(null);
+      setTx([]);
     }
 
     try {
