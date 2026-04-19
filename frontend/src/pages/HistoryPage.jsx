@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, Edit3 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
+import EditTransactionModal from "../components/EditTransactionModal";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../context/MonthContext";
@@ -21,6 +22,7 @@ export default function HistoryPage() {
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [editingTx, setEditingTx] = useState(null);
   const LIMIT = 30;
 
   const load = async (reset = false) => {
@@ -177,7 +179,7 @@ export default function HistoryPage() {
                         {x.source === "monobank" ? "💳" : "💵"} {x.category} · {formatTime(x.date)}
                       </p>
                     </div>
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 flex flex-col items-end">
                     <p
                       className={`font-semibold tabular-nums text-[16px] tracking-tight ${
                         x.type === "income" ? "text-[var(--app-button)]" : "text-white/90"
@@ -185,14 +187,23 @@ export default function HistoryPage() {
                     >
                       {x.type === "income" ? "+" : "-"}{formatMoney(x.amount).replace(" ₴", "")}
                     </p>
+                    <div className="flex gap-1.5 mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setEditingTx(x)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-white/50"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(x.id)}
+                        className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 active:scale-95 transition-all text-red-400"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(x.id)}
-                      className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 active:scale-95 transition-all shrink-0"
-                    >
-                      <Trash2 size={16} className="text-red-400" />
-                    </button>
                   </motion.li>
                 );
               })}
@@ -217,6 +228,15 @@ export default function HistoryPage() {
         </p>
       )}
       </div>
+
+      <EditTransactionModal
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+        onUpdated={(updated) => {
+          setItems((prev) => prev.map((tx) => (tx.id === updated.id ? updated : tx)));
+        }}
+      />
     </div>
   );
 }

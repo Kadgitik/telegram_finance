@@ -8,7 +8,8 @@ from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.deps import telegram_user_id
-from backend.app.models.schemas import TransactionCreate
+from backend.app.deps import telegram_user_id
+from backend.app.models.schemas import TransactionCreate, TransactionUpdate
 from backend.app.services.periods import month_window_from_key, resolve_pay_day
 from bot.db import queries
 from bot.db.mongo import get_db
@@ -120,6 +121,31 @@ async def list_transactions(
     )
     return {"items": [_tx_out(x) for x in items], "total": total}
 
+
+@router.patch("/transactions/{tx_id}")
+async def update_transaction(
+    tx_id: str,
+    body: TransactionUpdate,
+    telegram_id: int = Depends(telegram_user_id),
+    db: AsyncIOMotorDatabase = Depends(_db),
+) -> dict[str, Any]:
+    try:
+        oid = ObjectId(tx_id)
+    except InvalidId as e:
+        raise HTTPException(400, "Невірний id") from e
+
+    ok = await queries.update_transaction(
+        db, telegram_id, oid, 
+        category=body.category, 
+        description=body.description
+    )
+    if not ok:
+        raise HTTPException(404, "Не знайдено або нічого не змінено")
+    
+    doc = await queries.get_transaction(db, telegram_id, oid)
+    if not doc:
+        raise HTTPException(404, "Не знайдено")
+    return _tx_out(doc)
 
 @router.delete("/transactions/{tx_id}")
 async def delete_transaction(
