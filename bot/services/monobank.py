@@ -50,10 +50,11 @@ class MonobankError(Exception):
 
 
 async def _rate_limit_wait(endpoint: str) -> None:
-    last = _last_call.get(endpoint, 0)
-    diff = time.monotonic() - last
-    if diff < _RATE_LIMIT_SECONDS:
-        await asyncio.sleep(_RATE_LIMIT_SECONDS - diff)
+    last = _last_call.get(endpoint)
+    if last is not None:
+        diff = time.monotonic() - last
+        if diff < _RATE_LIMIT_SECONDS:
+            await asyncio.sleep(_RATE_LIMIT_SECONDS - diff)
     _last_call[endpoint] = time.monotonic()
 
 
@@ -72,7 +73,7 @@ async def _request(
     url = f"{BASE_URL}{path}"
 
     async with aiohttp.ClientSession() as session:
-        async with session.request(method, url, headers=headers, json=json_body, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+        async with session.request(method, url, headers=headers, json=json_body, timeout=aiohttp.ClientTimeout(total=15)) as resp:
             if resp.status == 200:
                 text = await resp.text()
                 if not text.strip():
