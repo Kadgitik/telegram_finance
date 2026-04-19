@@ -6,6 +6,7 @@ from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.app.deps import telegram_user_id
+from backend.app.limiter import limiter
 from backend.app.models.schemas import SavingsCreate, GoalCreate, GoalDeposit
 from bot.db import queries
 from bot.db.mongo import get_db
@@ -119,6 +120,7 @@ async def get_savings(
 
 
 @router.post("/savings", status_code=201)
+@limiter.limit("15/minute")
 async def add_savings(
     body: SavingsCreate,
     telegram_id: int = Depends(telegram_user_id),
@@ -131,6 +133,7 @@ async def add_savings(
 
 
 @router.delete("/savings/{item_id}")
+@limiter.limit("15/minute")
 async def delete_savings(
     item_id: str,
     telegram_id: int = Depends(telegram_user_id),
@@ -183,6 +186,7 @@ async def get_goals(
 
 
 @router.post("/goals", status_code=201)
+@limiter.limit("15/minute")
 async def create_goal(
     body: GoalCreate,
     telegram_id: int = Depends(telegram_user_id),
@@ -195,6 +199,7 @@ async def create_goal(
 
 
 @router.delete("/goals/{goal_id}")
+@limiter.limit("15/minute")
 async def delete_goal(
     goal_id: str,
     telegram_id: int = Depends(telegram_user_id),
@@ -211,6 +216,7 @@ async def delete_goal(
 
 
 @router.post("/goals/{goal_id}/deposit")
+@limiter.limit("15/minute")
 async def deposit_goal(
     goal_id: str,
     body: GoalDeposit,

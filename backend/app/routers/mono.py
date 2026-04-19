@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from backend.app.deps import telegram_user_id
+from backend.app.limiter import limiter
 from backend.app.models.schemas import MonoConnectRequest, MonoSetDefaultAccount
 from bot import config
 from bot.db import queries
@@ -29,6 +30,7 @@ def _db() -> AsyncIOMotorDatabase:
 
 
 @router.post("/connect")
+@limiter.limit("5/minute")
 async def connect_monobank(
     body: MonoConnectRequest,
     telegram_id: int = Depends(telegram_user_id),
@@ -105,6 +107,7 @@ async def connect_monobank(
 
 
 @router.post("/disconnect")
+@limiter.limit("5/minute")
 async def disconnect_monobank(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
@@ -176,6 +179,7 @@ async def set_default_account(
 
 
 @router.post("/sync")
+@limiter.limit("5/minute")
 async def sync_statement(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),

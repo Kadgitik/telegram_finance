@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from backend.app.deps import telegram_user_id
+from backend.app.limiter import limiter
 from backend.app.models.schemas import CategoryCreate
 from bot.db import queries
 from bot.db.mongo import get_db
@@ -18,6 +19,7 @@ def _db() -> AsyncIOMotorDatabase:
 
 
 @router.post("/categories", status_code=201)
+@limiter.limit("15/minute")
 async def create_category(
     body: CategoryCreate,
     telegram_id: int = Depends(telegram_user_id),
@@ -36,6 +38,7 @@ async def create_category(
 
 
 @router.delete("/categories/{key}")
+@limiter.limit("15/minute")
 async def delete_category(
     key: str,
     telegram_id: int = Depends(telegram_user_id),

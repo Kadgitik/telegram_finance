@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
+from backend.app.limiter import limiter
 
 from backend.app.deps import telegram_user_id
 from backend.app.services.periods import (
@@ -47,6 +48,7 @@ _INTERNAL_RX = re.compile(
 )
 
 @router.post("/admin/fix-transfers")
+@limiter.limit("2/minute")
 async def fix_transfers(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
@@ -67,6 +69,7 @@ async def fix_transfers(
 
 
 @router.post("/admin/clear-transactions")
+@limiter.limit("2/minute")
 async def clear_transactions(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
@@ -367,6 +370,7 @@ async def stats_trend(
 
 
 @router.get("/export/csv", response_class=PlainTextResponse)
+@limiter.limit("2/minute")
 async def export_csv(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
@@ -395,6 +399,7 @@ async def export_csv(
 
 
 @router.get("/fx/usd-uah")
+@limiter.limit("15/minute")
 async def usd_uah_rate() -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     updated_at = _FX_CACHE.get("updated_at")
