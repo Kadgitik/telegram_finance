@@ -3,11 +3,12 @@ import { X, Edit3, Trash2, Save, Undo2, Plus } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { formatMoney, formatTime } from "../utils/formatters";
 import { getCategoryConfig, CUSTOM_ICONS_MAP, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/constants";
-import { useHaptic } from "../hooks/useHaptic";
 import { api } from "../api/client";
 import { useTelegram } from "../hooks/useTelegram";
+import { useHaptic } from "../hooks/useHaptic";
 import { useCustomCategories } from "../context/CustomCategoriesContext";
 import AddCategoryModal from "./AddCategoryModal";
+import { patchHomeCacheTransaction, removeHomeCacheTransaction } from "../utils/cache";
 
 export default function TransactionDetailsModal({
   isOpen,
@@ -59,6 +60,7 @@ export default function TransactionDetailsModal({
         category,
         description: description.trim(),
       });
+      patchHomeCacheTransaction(updated);
       h.success();
       onUpdated(updated);
       setIsEditing(false);
@@ -81,6 +83,7 @@ export default function TransactionDetailsModal({
       setDeleting(true);
       try {
         await api.delete(`/transactions/${transaction.id}`, initData);
+        removeHomeCacheTransaction(transaction.id);
         h.success();
         onDeleted(transaction.id);
         onClose();

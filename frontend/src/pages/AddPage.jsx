@@ -9,6 +9,7 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CUSTOM_ICONS_MAP } from "../util
 import { useCustomCategories } from "../context/CustomCategoriesContext";
 import AddCategoryModal from "../components/AddCategoryModal";
 import { Plus, Trash2 } from "lucide-react";
+import { invalidateHomeCache } from "../utils/cache";
 
 const KEYS = [
   ["1", "2", "3"],
@@ -240,6 +241,7 @@ export default function AddPage() {
               original_amount: originalAmount,
               original_currency: originalCurrency,
             });
+            invalidateHomeCache();
             h.success();
             setTimeout(() => nav(-1), 100);
           } catch (err) {
