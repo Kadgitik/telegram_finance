@@ -20,6 +20,14 @@ class TransactionUpdate(BaseModel):
     description: str | None = None
 
 
+class CategoryCreate(BaseModel):
+    type: Literal["expense", "income"]
+    key: str = Field(min_length=1, max_length=50)
+    icon: str = Field(min_length=1, max_length=50)
+    color: str = Field(min_length=3, max_length=20)
+
+
+
 
 class MonoConnectRequest(BaseModel):
     token: str = Field(min_length=10)

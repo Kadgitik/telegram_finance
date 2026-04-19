@@ -5,7 +5,10 @@ import { api } from "../api/client";
 import { useFxRate } from "../hooks/useFxRate";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/constants";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CUSTOM_ICONS_MAP } from "../utils/constants";
+import { useCustomCategories } from "../context/CustomCategoriesContext";
+import AddCategoryModal from "../components/AddCategoryModal";
+import { Plus } from "lucide-react";
 
 const KEYS = [
   ["1", "2", "3"],
@@ -24,15 +27,25 @@ export default function AddPage() {
   const [saving, setSaving] = useState(false);
   const [currency, setCurrency] = useState("UAH");
   const savingRef = useRef(false);
+  const [customCategories] = useCustomCategories();
+  const [showAddCategory, setShowAddCategory] = useState(false);
   const { initData } = useTelegram();
   const h = useHaptic();
   const nav = useNavigate();
   const usdRate = useFxRate();
 
-  const categories = useMemo(
-    () => (kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES),
-    [kind]
-  );
+  const categories = useMemo(() => {
+    const defaultCats = kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+    const customCats = customCategories
+      .filter((c) => c.type === kind)
+      .map((c) => ({
+        key: c.key,
+        icon: CUSTOM_ICONS_MAP[c.icon] || CUSTOM_ICONS_MAP.Star,
+        color: c.color || "#8E8E93",
+        isCustom: true,
+      }));
+    return [...customCats, ...defaultCats];
+  }, [kind, customCategories]);
 
   // Auto-select first category when switching type
   useEffect(() => {
@@ -144,6 +157,17 @@ export default function AddPage() {
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => {
+            h.light();
+            setShowAddCategory(true);
+          }}
+          className="rounded-xl py-2.5 px-1 text-xs border border-transparent bg-white/5 hover:bg-white/10 active:bg-white/20 transition-colors flex flex-col items-center justify-center gap-1 text-white/50"
+        >
+          <Plus size={20} />
+          <span className="truncate w-full text-center leading-tight">Додати</span>
+        </button>
       </div>
 
       {/* Description */}
@@ -200,6 +224,13 @@ export default function AddPage() {
       >
         {saving ? "Збереження..." : "Зберегти"}
       </button>
+
+      <AddCategoryModal
+        isOpen={showAddCategory}
+        onClose={() => setShowAddCategory(false)}
+        type={kind}
+        onCreated={(cat) => setCategory(cat.key)}
+      />
     </div>
   );
 }

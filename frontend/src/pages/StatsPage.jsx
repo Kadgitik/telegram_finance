@@ -17,6 +17,7 @@ import { useStoredMonth } from "../context/MonthContext";
 import { Calendar } from "lucide-react";
 import { formatMoney, formatUsdApprox } from "../utils/formatters";
 import { ACCENT, getCategoryConfig } from "../utils/constants";
+import { useCustomCategories } from "../context/CustomCategoriesContext";
 
 ChartJS.register(Tooltip, CategoryScale, LinearScale, BarElement, ArcElement);
 
@@ -28,6 +29,7 @@ export default function StatsPage() {
   const [periodType, setPeriodType] = useState("month");
   const [customRange, setCustomRange] = useState({ start: "", end: "" });
   const [showPicker, setShowPicker] = useState(false);
+  const [customCategories] = useCustomCategories();
   const usdRate = useFxRate();
 
   const [expandedCat, setExpandedCat] = useState(null);
@@ -98,7 +100,7 @@ export default function StatsPage() {
     datasets: [
       {
         data: cats.map((c) => c.amount),
-        backgroundColor: cats.map((c) => getCategoryConfig(c.name).color),
+        backgroundColor: cats.map((c) => getCategoryConfig(c.name, customCategories).color),
         borderWidth: 2,
         borderColor: "#1C1C1E",
         hoverOffset: 8,
@@ -190,7 +192,7 @@ export default function StatsPage() {
           {/* Category list */}
           <ul className="space-y-2">
             {cats.map((c) => {
-              const cfg = getCategoryConfig(c.name);
+              const cfg = getCategoryConfig(c.name, customCategories);
               const Icon = cfg.icon;
               const isExpanded = expandedCat === c.name;
               
