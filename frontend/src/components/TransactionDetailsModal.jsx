@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Edit3, Trash2, Save, Undo2 } from "lucide-react";
+import { X, Edit3, Trash2, Save, Undo2, Plus } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { formatMoney, formatTime } from "../utils/formatters";
 import { getCategoryConfig, CUSTOM_ICONS_MAP, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/constants";
@@ -7,6 +7,7 @@ import { useHaptic } from "../hooks/useHaptic";
 import { api } from "../api/client";
 import { useTelegram } from "../hooks/useTelegram";
 import { useCustomCategories } from "../context/CustomCategoriesContext";
+import AddCategoryModal from "./AddCategoryModal";
 
 export default function TransactionDetailsModal({
   isOpen,
@@ -20,6 +21,7 @@ export default function TransactionDetailsModal({
   const [category, setCategory] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
 
   const h = useHaptic();
   const { initData } = useTelegram();
@@ -102,6 +104,7 @@ export default function TransactionDetailsModal({
   const CurrentIcon = currentCatConfig.icon;
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <>
@@ -232,6 +235,17 @@ export default function TransactionDetailsModal({
                             </button>
                           );
                         })}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            h.light();
+                            setShowAddCategory(true);
+                          }}
+                          className="rounded-xl py-2.5 px-1 text-xs border border-transparent bg-white/5 hover:bg-white/10 active:bg-white/20 transition-colors flex flex-col items-center justify-center gap-1 text-white/50"
+                        >
+                          <Plus size={20} />
+                          <span className="truncate w-full text-center leading-tight">Додати</span>
+                        </button>
                       </div>
                     </div>
 
@@ -263,5 +277,14 @@ export default function TransactionDetailsModal({
         </>
       )}
     </AnimatePresence>
+    {transaction && (
+      <AddCategoryModal
+        isOpen={showAddCategory}
+        onClose={() => setShowAddCategory(false)}
+        type={transaction.type}
+        onCreated={(cat) => setCategory(cat.key)}
+      />
+    )}
+    </>
   );
 }
