@@ -1,15 +1,16 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, Trash2, Edit3 } from "lucide-react";
+import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
-import EditTransactionModal from "../components/EditTransactionModal";
+import TransactionDetailsModal from "../components/TransactionDetailsModal";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../context/MonthContext";
 import { formatDayLabel, formatMoney, formatTime } from "../utils/formatters";
 import { getCategoryConfig } from "../utils/constants";
+import { useCustomCategories } from "../context/CustomCategoriesContext";
 
 export default function HistoryPage() {
   const { initData } = useTelegram();
@@ -23,6 +24,7 @@ export default function HistoryPage() {
   const [showSearch, setShowSearch] = useState(false);
   const [offset, setOffset] = useState(0);
   const [editingTx, setEditingTx] = useState(null);
+  const [customCategories] = useCustomCategories();
   const LIMIT = 30;
 
   const load = async (reset = false) => {
@@ -70,17 +72,8 @@ export default function HistoryPage() {
     load(true).catch(() => {});
   }, [initData, month, filter, search]);
 
-  const handleDelete = async (id) => {
-    if (!initData) return;
-    try {
-      await api.delete(`/transactions/${id}`, initData);
-      setItems((prev) => prev.filter((x) => x.id !== id));
-      setTotal((t) => t - 1);
-      h.success();
-    } catch {
-      h.error();
-    }
-  };
+    // We shouldn't need handleDelete here anymore since it's inside the modal, 
+    // but if we do, it's passed as a prop below.
 
   const grouped = {};
   for (const tx of items) {
@@ -157,13 +150,14 @@ export default function HistoryPage() {
             <p className="text-[12px] text-white/50 mb-2 font-semibold uppercase tracking-wider">{formatDayLabel(day)}</p>
             <ul className="space-y-2">
               {grouped[day].map((x) => {
-                const cat = getCategoryConfig(x.category);
+                const cat = getCategoryConfig(x.category, customCategories);
                 const Icon = cat.icon;
                 return (
                   <motion.li
                     variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}
                     key={x.id}
-                    className="flex items-center gap-4 bg-[#1C1C1E]/80 backdrop-blur-xl p-4 rounded-[24px] border border-white/5 shadow-sm active:bg-[#2C2C2E]"
+                    onClick={() => { h.light(); setEditingTx(x); }}
+                    className="flex items-center gap-4 bg-[#1C1C1E]/80 backdrop-blur-xl p-4 rounded-[24px] border border-white/5 shadow-sm active:bg-[#2C2C2E] cursor-pointer"
                   >
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
@@ -179,7 +173,7 @@ export default function HistoryPage() {
                         {x.source === "monobank" ? "💳" : "💵"} {x.category} · {formatTime(x.date)}
                       </p>
                     </div>
-                  <div className="text-right shrink-0 flex flex-col items-end">
+                  <div className="text-right shrink-0">
                     <p
                       className={`font-semibold tabular-nums text-[16px] tracking-tight ${
                         x.type === "income" ? "text-[var(--app-button)]" : "text-white/90"
@@ -187,22 +181,6 @@ export default function HistoryPage() {
                     >
                       {x.type === "income" ? "+" : "-"}{formatMoney(x.amount).replace(" ₴", "")}
                     </p>
-                    <div className="flex gap-1.5 mt-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setEditingTx(x)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-white/50"
-                      >
-                        <Edit3 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(x.id)}
-                        className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 active:scale-95 transition-all text-red-400"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
                   </div>
                   </motion.li>
                 );
@@ -229,12 +207,16 @@ export default function HistoryPage() {
       )}
       </div>
 
-      <EditTransactionModal
+      <TransactionDetailsModal
         isOpen={!!editingTx}
         onClose={() => setEditingTx(null)}
         transaction={editingTx}
         onUpdated={(updated) => {
           setItems((prev) => prev.map((tx) => (tx.id === updated.id ? updated : tx)));
+        }}
+        onDeleted={(id) => {
+          setItems((prev) => prev.filter((x) => x.id !== id));
+          setTotal((t) => t - 1);
         }}
       />
     </div>

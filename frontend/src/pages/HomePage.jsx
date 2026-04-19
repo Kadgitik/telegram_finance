@@ -10,6 +10,8 @@ import { useStoredMonth } from "../context/MonthContext";
 import { formatMoney, formatUsdApprox } from "../utils/formatters";
 import MonthSwitcher from "../components/MonthSwitcher";
 import { getCategoryConfig } from "../utils/constants";
+import TransactionDetailsModal from "../components/TransactionDetailsModal";
+import { useCustomCategories } from "../context/CustomCategoriesContext";
 
 export default function HomePage() {
   const nav = useNavigate();
@@ -17,8 +19,10 @@ export default function HomePage() {
   const h = useHaptic();
   const [balance, setBalance] = useState(null);
   const [tx, setTx] = useState([]);
+  const [editingTx, setEditingTx] = useState(null);
   const [err, setErr] = useState("");
   const [month, setStoredMonth] = useStoredMonth();
+  const [customCategories] = useCustomCategories();
   const usdRate = useFxRate();
 
   const load = async () => {
@@ -246,10 +250,10 @@ export default function HomePage() {
           className="space-y-2.5"
         >
           {tx.map((x) => {
-            const cat = getCategoryConfig(x.category);
+            const cat = getCategoryConfig(x.category, customCategories);
             const Icon = cat.icon;
             return (
-              <Link to="/history" key={x.id} className="block">
+              <div key={x.id} className="block cursor-pointer" onClick={() => { h.light(); setEditingTx(x); }}>
                 <motion.div
                   variants={{
                     hidden: { opacity: 0, y: 15 },
@@ -292,7 +296,7 @@ export default function HomePage() {
                     ) : null}
                   </div>
                 </motion.div>
-              </Link>
+              </div>
             );
           })}
           {tx.length === 0 && (
@@ -305,6 +309,18 @@ export default function HomePage() {
           )}
         </motion.div>
       </motion.div>
+
+      <TransactionDetailsModal
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+        onUpdated={(updated) => {
+          setTx((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+        }}
+        onDeleted={(id) => {
+          setTx((prev) => prev.filter((t) => t.id !== id));
+        }}
+      />
     </div>
   );
 }

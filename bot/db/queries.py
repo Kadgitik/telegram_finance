@@ -41,6 +41,7 @@ async def upsert_user(
                 "mono_accounts": [],
                 "mono_webhook_set": False,
                 "default_account": None,
+                "custom_categories": [],
                 "created_at": now,
             },
         },
@@ -114,6 +115,39 @@ async def disconnect_mono(db: AsyncIOMotorDatabase, telegram_id: int) -> None:
             }
         },
     )
+
+
+async def add_custom_category(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    type_: str,
+    key: str,
+    icon: str,
+    color: str,
+) -> bool:
+    doc = {
+        "type": type_,
+        "key": key,
+        "icon": icon,
+        "color": color,
+    }
+    r = await db["users"].update_one(
+        {"telegram_id": telegram_id},
+        {"$push": {"custom_categories": doc}}
+    )
+    return r.modified_count > 0
+
+
+async def delete_custom_category(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    key: str,
+) -> bool:
+    r = await db["users"].update_one(
+        {"telegram_id": telegram_id},
+        {"$pull": {"custom_categories": {"key": key}}}
+    )
+    return r.modified_count > 0
 
 
 # ── Transactions ───────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api } from "./api/client";
 import BottomNav from "./components/BottomNav";
 import { MonthProvider, useStoredMonth } from "./context/MonthContext";
+import { CustomCategoriesProvider, useCustomCategories } from "./context/CustomCategoriesContext";
 import { useTelegram } from "./hooks/useTelegram";
 import AddPage from "./pages/AddPage";
 import HistoryPage from "./pages/HistoryPage";
@@ -17,6 +18,7 @@ function AppRoutes() {
   const nav = useNavigate();
   const { initData, ready } = useTelegram();
   const [, setStoredMonth] = useStoredMonth();
+  const [, setCustomCategories] = useCustomCategories();
   const [bootReady, setBootReady] = useState(true);
 
   const rootTabs = ["/", "/stats", "/history", "/savings"];
@@ -38,6 +40,7 @@ function AppRoutes() {
         if (cancelled || !data) return;
         const m = data.month;
         if (m) setStoredMonth(m);
+        if (data.custom_categories) setCustomCategories(data.custom_categories);
       } catch {
         // ignore
       } finally {
@@ -76,8 +79,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <MonthProvider>
-      <AppRoutes />
-    </MonthProvider>
+    <CustomCategoriesProvider>
+      <MonthProvider>
+        <AppRoutes />
+      </MonthProvider>
+    </CustomCategoriesProvider>
   );
 }

@@ -21,7 +21,29 @@ import {
   Wallet,
   PiggyBank,
   Landmark,
+  Star,
+  Smile,
+  Activity,
+  Car,
+  Coffee,
+  Book,
+  Music,
+  Umbrella,
+  Monitor,
+  Anchor,
+  Droplet,
+  Award,
+  Cat,
+  Dog,
+  Carrot,
+  Baby,
+  Dumbbell
 } from "lucide-react";
+
+export const CUSTOM_ICONS_MAP = {
+  Star, Smile, Activity, Car, Coffee, Book, Music, Umbrella, Monitor, Anchor, Droplet, Award, Cat, Dog, Carrot, Baby, Dumbbell,
+  ShoppingCart, UtensilsCrossed, Bus, Fuel, Gamepad2, Heart, Sparkles, Shirt, Smartphone, Home, Zap, ArrowLeftRight, Banknote, GraduationCap, CreditCard, Plane, Briefcase, Gift, Wallet, PiggyBank, Landmark
+};
 
 export const ACCENT = {
   green: "#34C759",
@@ -29,12 +51,11 @@ export const ACCENT = {
   blue: "#007AFF",
   orange: "#FF9500",
   purple: "#AF52DE",
-  chart: [
-    "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#00C7BE",
-    "#007AFF", "#5856D6", "#AF52DE", "#FF2D55", "#A2845E",
-    "#8E8E93", "#30D158", "#64D2FF", "#BF5AF2", "#FF6961",
-    "#FFD700", "#5AC8FA",
-  ],
+  pink: "#FF2D55",
+  teal: "#5AC8FA",
+  yellow: "#FFCC00",
+  indigo: "#5856D6",
+  brown: "#A2845E",
 };
 
 export const EXPENSE_CATEGORIES = [
@@ -68,7 +89,16 @@ export const INCOME_CATEGORIES = [
 ];
 
 // Helper to find category config by key
-export function getCategoryConfig(key) {
+export function getCategoryConfig(key, customCategories = []) {
+  const custom = customCategories.find((c) => c.key === key);
+  if (custom) {
+    return {
+      key: custom.key,
+      icon: CUSTOM_ICONS_MAP[custom.icon] || MoreHorizontal,
+      color: custom.color || "#8E8E93",
+      isCustom: true
+    };
+  }
   return (
     EXPENSE_CATEGORIES.find((c) => c.key === key) ||
     INCOME_CATEGORIES.find((c) => c.key === key) ||

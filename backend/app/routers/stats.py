@@ -243,6 +243,7 @@ async def bootstrap(
         "trend": trend_data,
         "savings_total": sav_total,
         "mono_connected": mono_connected,
+        "custom_categories": user.get("custom_categories", []),
     }
 
 
