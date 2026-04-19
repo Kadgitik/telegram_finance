@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.deps import telegram_user_id
 from backend.app.deps import telegram_user_id
+from backend.app.limiter import limiter
 from backend.app.models.schemas import TransactionCreate, TransactionUpdate
 from backend.app.services.periods import month_window_from_key, resolve_pay_day
 from bot.db import queries
@@ -43,6 +44,7 @@ def _tx_out(doc: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.post("/transactions", status_code=201)
+@limiter.limit("15/minute")
 async def create_transaction(
     body: TransactionCreate,
     telegram_id: int = Depends(telegram_user_id),
@@ -123,6 +125,7 @@ async def list_transactions(
 
 
 @router.patch("/transactions/{tx_id}")
+@limiter.limit("15/minute")
 async def update_transaction(
     tx_id: str,
     body: TransactionUpdate,
@@ -148,6 +151,7 @@ async def update_transaction(
     return _tx_out(doc)
 
 @router.delete("/transactions/{tx_id}")
+@limiter.limit("15/minute")
 async def delete_transaction(
     tx_id: str,
     telegram_id: int = Depends(telegram_user_id),

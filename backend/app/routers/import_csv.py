@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from backend.app.limiter import limiter
 
 from backend.app.deps import telegram_user_id
 from bot.db.mongo import get_db
@@ -232,6 +233,7 @@ def _detect_delimiter(first_line: str) -> str:
 
 
 @router.post("/csv")
+@limiter.limit("5/minute")
 async def import_csv(
     file: UploadFile = File(...),
     telegram_id: int = Depends(telegram_user_id),

@@ -11,6 +11,11 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+from backend.app.limiter import limiter
 
 from backend.app.routers import mono, savings, stats, transactions, debts, categories, import_csv
 from bot import config
@@ -74,6 +79,23 @@ app = FastAPI(
     title="Finance Mini App API",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    # Protection against clickjacking
+    response.headers["X-Frame-Options"] = "DENY"
+    # Protection against MIME-sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # Basic XSS protection (though modern browsers handle it via CSP)
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # Strict Transport Security (HSTS)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 # CORS Policy — фільтруємо порожні значення, щоб не додавати "" у allow_origins.
 _cors_origins = [
