@@ -166,20 +166,7 @@ export default function StatsPage() {
                 maintainAspectRatio: true,
                 plugins: { 
                   legend: { display: false },
-                  tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.85)',
-                    padding: 12,
-                    cornerRadius: 12,
-                    titleFont: { size: 14 },
-                    bodyFont: { size: 16, weight: 'bold' },
-                    displayColors: true,
-                    boxPadding: 4,
-                    callbacks: {
-                       label: function(context) {
-                          return ' ' + context.parsed.toLocaleString('uk-UA') + ' ₴';
-                       }
-                    }
-                  }
+                  tooltip: { enabled: false }
                 },
               }}
             />
