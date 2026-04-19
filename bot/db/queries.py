@@ -203,6 +203,27 @@ async def delete_transaction(
     return r.modified_count > 0
 
 
+async def update_transaction(
+    db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId,
+    *, category: str | None = None, description: str | None = None
+) -> bool:
+    update_fields: dict[str, Any] = {}
+    if category is not None:
+        update_fields["category"] = category
+    if description is not None:
+        update_fields["description"] = description
+        
+    if not update_fields:
+        return False
+        
+    r = await db["transactions"].update_one(
+        {"telegram_id": telegram_id, "_id": oid},
+        {"$set": update_fields}
+    )
+    return r.modified_count > 0
+
+
+
 async def list_transactions(
     db: AsyncIOMotorDatabase,
     telegram_id: int,

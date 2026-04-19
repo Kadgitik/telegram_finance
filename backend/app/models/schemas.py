@@ -15,6 +15,12 @@ class TransactionCreate(BaseModel):
     original_currency: str | None = None
 
 
+class TransactionUpdate(BaseModel):
+    category: str | None = None
+    description: str | None = None
+
+
+
 class MonoConnectRequest(BaseModel):
     token: str = Field(min_length=10)
 
