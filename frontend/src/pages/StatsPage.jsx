@@ -161,13 +161,16 @@ export default function StatsPage() {
           className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl"
         >
           <p className="font-semibold text-white/50 mb-4">Розподіл витрат</p>
-          <div className="relative w-48 h-48 mx-auto mb-6">
+          <div className="relative w-full h-64 mx-auto mb-6">
             <Doughnut
               data={doughnutData}
               options={{
                 cutout: "75%",
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
+                layout: {
+                  padding: 40,
+                },
                 plugins: { 
                   legend: { display: false },
                   tooltip: {
