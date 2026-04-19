@@ -25,7 +25,7 @@ export default function TransactionDetailsModal({
 
   const h = useHaptic();
   const { initData } = useTelegram();
-  const [customCategories] = useCustomCategories();
+  const [customCategories, setCustomCategories] = useCustomCategories();
 
   useEffect(() => {
     if (isOpen && transaction) {
@@ -100,8 +100,28 @@ export default function TransactionDetailsModal({
 
   if (!transaction) return null;
 
+  const handleDeleteCategory = async () => {
+    if (!initData) return;
+    if (window.confirm(`Дійсно видалити власну категорію "${category}"?`)) {
+      try {
+        await api.delete(`/categories/${category}`, initData);
+        setCustomCategories((prev) => prev.filter((c) => c.key !== category));
+        setCategory(categories[0]?.key || "");
+        h.success();
+      } catch (err) {
+        h.error();
+        if (window.Telegram?.WebApp?.showAlert) {
+          window.Telegram.WebApp.showAlert(`Помилка: ${err.message}`);
+        } else {
+          alert(`Помилка: ${err.message}`);
+        }
+      }
+    }
+  };
+
   const currentCatConfig = getCategoryConfig(transaction.category, customCategories);
   const CurrentIcon = currentCatConfig.icon;
+  const isSelectedCustom = customCategories.some((c) => c.key === category);
 
   return (
     <>
@@ -246,6 +266,19 @@ export default function TransactionDetailsModal({
                           <Plus size={20} />
                           <span className="truncate w-full text-center leading-tight">Додати</span>
                         </button>
+                        {isSelectedCustom && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              h.light();
+                              handleDeleteCategory();
+                            }}
+                            className="rounded-xl py-2.5 px-1 text-xs border border-transparent bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 transition-colors flex flex-col items-center justify-center gap-1 text-red-500/80"
+                          >
+                            <Trash2 size={20} />
+                            <span className="truncate w-full text-center leading-tight">Видалити</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 

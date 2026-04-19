@@ -8,7 +8,7 @@ import { useTelegram } from "../hooks/useTelegram";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CUSTOM_ICONS_MAP } from "../utils/constants";
 import { useCustomCategories } from "../context/CustomCategoriesContext";
 import AddCategoryModal from "../components/AddCategoryModal";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 const KEYS = [
   ["1", "2", "3"],
@@ -27,7 +27,7 @@ export default function AddPage() {
   const [saving, setSaving] = useState(false);
   const [currency, setCurrency] = useState("UAH");
   const savingRef = useRef(false);
-  const [customCategories] = useCustomCategories();
+  const [customCategories, setCustomCategories] = useCustomCategories();
   const [showAddCategory, setShowAddCategory] = useState(false);
   const { initData } = useTelegram();
   const h = useHaptic();
@@ -66,6 +66,27 @@ export default function AddPage() {
   };
 
   const amount = parseFloat(amountStr.replace(",", ".")) || 0;
+
+  const handleDeleteCategory = async () => {
+    if (!initData) return;
+    if (window.confirm(`Дійсно видалити власну категорію "${category}"?`)) {
+      try {
+        await api.delete(`/categories/${category}`, initData);
+        setCustomCategories((prev) => prev.filter((c) => c.key !== category));
+        setCategory(categories[0]?.key || "");
+        h.success();
+      } catch (err) {
+        h.error();
+        if (window.Telegram?.WebApp?.showAlert) {
+          window.Telegram.WebApp.showAlert(`Помилка: ${err.message}`);
+        } else {
+          alert(`Помилка: ${err.message}`);
+        }
+      }
+    }
+  };
+
+  const isSelectedCustom = customCategories.some((c) => c.key === category);
 
   return (
     <div className="px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] max-w-lg mx-auto min-h-screen overflow-y-auto">
@@ -168,6 +189,19 @@ export default function AddPage() {
           <Plus size={20} />
           <span className="truncate w-full text-center leading-tight">Додати</span>
         </button>
+        {isSelectedCustom && (
+          <button
+            type="button"
+            onClick={() => {
+              h.light();
+              handleDeleteCategory();
+            }}
+            className="rounded-xl py-2.5 px-1 text-xs border border-transparent bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 transition-colors flex flex-col items-center justify-center gap-1 text-red-500/80"
+          >
+            <Trash2 size={20} />
+            <span className="truncate w-full text-center leading-tight">Видалити</span>
+          </button>
+        )}
       </div>
 
       {/* Description */}
