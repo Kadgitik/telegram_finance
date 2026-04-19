@@ -163,6 +163,24 @@ export const api = {
       clearGetCache();
       return res;
     }),
+  upload: async (p, initData, formData) => {
+    const headers = initData ? { Authorization: `tma ${initData}` } : {};
+    const r = await fetch(`/api${p}`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    if (r.status === 204) return null;
+    const text = await r.text();
+    if (!r.ok) throw new Error(parseErrorMessage(text, r.status, r.statusText));
+    try {
+      const data = JSON.parse(text);
+      clearGetCache();
+      return data;
+    } catch {
+      return text;
+    }
+  },
   setCached,
   primeCache: (entries, initData) => {
     const now = Date.now();
