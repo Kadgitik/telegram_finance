@@ -1,16 +1,19 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArcElement,
-  BarElement,
+  LineElement,
+  PointElement,
+  Filler,
   CategoryScale,
   Chart as ChartJS,
   LinearScale,
   Tooltip,
 } from "chart.js";
 import { useEffect, useState } from "react";
-import { Bar, Doughnut } from "react-chartjs-2";
+import { Line, Doughnut } from "react-chartjs-2";
 import { api } from "../api/client";
 import PeriodPickerModal from "../components/PeriodPickerModal";
+import TransactionDetailsModal from "../components/TransactionDetailsModal";
 import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../context/MonthContext";
@@ -19,7 +22,7 @@ import { formatMoney, formatUsdApprox } from "../utils/formatters";
 import { ACCENT, getCategoryConfig } from "../utils/constants";
 import { useCustomCategories } from "../context/CustomCategoriesContext";
 
-ChartJS.register(Tooltip, CategoryScale, LinearScale, BarElement, ArcElement);
+ChartJS.register(Tooltip, CategoryScale, LinearScale, ArcElement, LineElement, PointElement, Filler);
 
 export default function StatsPage() {
   const { initData } = useTelegram();
@@ -35,6 +38,7 @@ export default function StatsPage() {
   const [expandedCat, setExpandedCat] = useState(null);
   const [catTx, setCatTx] = useState([]);
   const [loadingCat, setLoadingCat] = useState(false);
+  const [editingTx, setEditingTx] = useState(null);
 
   const toggleCat = async (cName) => {
     if (expandedCat === cName) {
@@ -175,7 +179,6 @@ export default function StatsPage() {
                     bodyFont: { size: 14, weight: 'bold' },
                     displayColors: true,
                     boxPadding: 4,
-                    yAlign: 'bottom',
                     caretSize: 6,
                     callbacks: {
                        label: function(context) {
@@ -234,8 +237,12 @@ export default function StatsPage() {
                             <p className="text-xs text-center text-[var(--app-hint)] py-2">Завантаження...</p>
                           ) : catTx.length > 0 ? (
                             catTx.map((tx) => (
-                              <div key={tx.id} className="flex justify-between items-center gap-2 px-2 py-1.5">
-                                <div className="flex-1 min-w-0">
+                              <div 
+                                key={tx.id} 
+                                onClick={() => { setEditingTx(tx); }}
+                                className="flex justify-between items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-white/5 active:bg-white/10 rounded-lg transition-colors"
+                              >
+                                <div className="flex-1 min-w-0 pointer-events-none">
                                   <p className="font-medium text-[14px] truncate text-white/90">
                                     {tx.description || tx.category || "—"}
                                   </p>
@@ -244,7 +251,7 @@ export default function StatsPage() {
                                     {tx.source === 'monobank' ? " · 💳" : ""}
                                   </p>
                                 </div>
-                                <p className="font-semibold tabular-nums text-[14px] tracking-tight shrink-0">
+                                <p className="font-semibold tabular-nums text-[14px] tracking-tight shrink-0 pointer-events-none">
                                   {formatMoney(tx.amount).replace(" ₴", "")}
                                 </p>
                               </div>
@@ -271,28 +278,39 @@ export default function StatsPage() {
         >
           <p className="font-semibold text-white/50 mb-4">Витрати по днях</p>
           <div className="h-48 w-full">
-            <Bar
+            <Line
               data={{
                 labels: barLabels,
                 datasets: [
                   {
                     data: barVals,
-                    borderRadius: 6,
-                    borderSkipped: false,
+                    fill: true,
+                    tension: 0.4,
+                    borderColor: '#10b981',
+                    borderWidth: 3,
                     backgroundColor: (context) => {
                       const ctx = context.chart.ctx;
                       const gradient = ctx.createLinearGradient(0, 0, 0, context.chart.height);
-                      gradient.addColorStop(0, '#10b981');
-                      gradient.addColorStop(1, 'rgba(16, 185, 129, 0.1)');
+                      gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+                      gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
                       return gradient;
                     },
-                    barThickness: Math.min(16, 240 / Math.max(1, barLabels.length)),
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: "#fff",
+                    pointHoverBorderColor: "#10b981",
+                    pointHoverBorderWidth: 2,
+                    pointHitRadius: 20,
                   },
                 ],
               }}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                   mode: 'index',
+                   intersect: false,
+                },
                 plugins: { 
                   legend: { display: false },
                   tooltip: {
@@ -333,6 +351,22 @@ export default function StatsPage() {
             setStoredMonth(data);
           }
           setShowPicker(false);
+        }}
+      />
+
+      <TransactionDetailsModal
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+        onUpdated={(updated) => {
+          setCatTx((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+          if (editingTx && editingTx.id === updated.id) {
+            setEditingTx(updated);
+          }
+        }}
+        onDeleted={(id) => {
+          setCatTx((prev) => prev.filter((t) => t.id !== id));
+          setEditingTx(null);
         }}
       />
     </div>
