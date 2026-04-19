@@ -213,6 +213,9 @@ export default function HistoryPage() {
         transaction={editingTx}
         onUpdated={(updated) => {
           setItems((prev) => prev.map((tx) => (tx.id === updated.id ? updated : tx)));
+          if (editingTx && editingTx.id === updated.id) {
+            setEditingTx(updated);
+          }
         }}
         onDeleted={(id) => {
           setItems((prev) => prev.filter((x) => x.id !== id));

@@ -316,6 +316,9 @@ export default function HomePage() {
         transaction={editingTx}
         onUpdated={(updated) => {
           setTx((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+          if (editingTx && editingTx.id === updated.id) {
+            setEditingTx(updated);
+          }
         }}
         onDeleted={(id) => {
           setTx((prev) => prev.filter((t) => t.id !== id));
