@@ -24,6 +24,20 @@ import { useCustomCategories } from "../context/CustomCategoriesContext";
 
 ChartJS.register(Tooltip, CategoryScale, LinearScale, ArcElement, LineElement, PointElement, Filler);
 
+Tooltip.positioners.outside = function(items) {
+  if (!items.length) return false;
+  const pos = items[0].element.tooltipPosition();
+  const centerX = this.chart.chartArea.left + this.chart.chartArea.width / 2;
+  const centerY = this.chart.chartArea.top + this.chart.chartArea.height / 2;
+  const dx = pos.x - centerX;
+  const dy = pos.y - centerY;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  return {
+    x: pos.x + (dx / len) * 40,
+    y: pos.y + (dy / len) * 40,
+  };
+};
+
 export default function StatsPage() {
   const { initData } = useTelegram();
   const [stats, setStats] = useState(null);
@@ -175,6 +189,7 @@ export default function StatsPage() {
                   legend: { display: false },
                   tooltip: {
                     enabled: true,
+                    position: 'outside',
                     backgroundColor: 'rgba(0,0,0,0.85)',
                     padding: 8,
                     cornerRadius: 12,
