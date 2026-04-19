@@ -83,14 +83,18 @@ async def connect_monobank(
     if default_acc:
         await queries.set_default_account(db, telegram_id, default_acc)
 
-    # Auto-subscribe webhook. Secret у шляху — захист від підробки ззовні.
-    webhook_url = f"{config.WEBHOOK_BASE_URL}/api/mono/webhook/{config.MONO_WEBHOOK_SECRET}"
-    try:
-        await monobank.set_webhook(body.token, webhook_url)
-        await queries.set_mono_webhook_status(db, telegram_id, True)
-    except Exception as e:
-        _LOGGER.error("Failed to auto-set mono webhook: %s", e)
-        await queries.set_mono_webhook_status(db, telegram_id, False)
+    # Auto-subscribe webhook in BACKGROUND — don't block the response.
+    # Monobank does a test GET to our endpoint which can be slow on free tier.
+    async def _setup_webhook():
+        webhook_url = f"{config.WEBHOOK_BASE_URL}/api/mono/webhook/{config.MONO_WEBHOOK_SECRET}"
+        try:
+            await monobank.set_webhook(body.token, webhook_url)
+            await queries.set_mono_webhook_status(db, telegram_id, True)
+        except Exception as e:
+            _LOGGER.error("Failed to auto-set mono webhook: %s", e)
+            await queries.set_mono_webhook_status(db, telegram_id, False)
+
+    asyncio.create_task(_setup_webhook())
 
     return {
         "ok": True,
