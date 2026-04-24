@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from starlette.requests import Request
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from backend.app.deps import telegram_user_id

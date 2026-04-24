@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
+from starlette.requests import Request
 from backend.app.limiter import limiter
 
 from backend.app.deps import telegram_user_id
