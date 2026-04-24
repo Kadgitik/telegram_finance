@@ -21,7 +21,7 @@ def _db() -> AsyncIOMotorDatabase:
 @router.post("/categories", status_code=201)
 @limiter.limit("15/minute")
 async def create_category(
-    body: CategoryCreate,
+    request: Request, body: CategoryCreate,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, Any]:
@@ -40,7 +40,7 @@ async def create_category(
 @router.delete("/categories/{key}")
 @limiter.limit("15/minute")
 async def delete_category(
-    key: str,
+    request: Request, key: str,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, bool]:

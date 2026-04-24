@@ -32,7 +32,7 @@ def _db() -> AsyncIOMotorDatabase:
 @router.post("/connect")
 @limiter.limit("5/minute")
 async def connect_monobank(
-    body: MonoConnectRequest,
+    request: Request, body: MonoConnectRequest,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, Any]:
@@ -109,7 +109,7 @@ async def connect_monobank(
 @router.post("/disconnect")
 @limiter.limit("5/minute")
 async def disconnect_monobank(
-    telegram_id: int = Depends(telegram_user_id),
+    request: Request, telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
     await queries.disconnect_mono(db, telegram_id)
@@ -181,7 +181,7 @@ async def set_default_account(
 @router.post("/sync")
 @limiter.limit("5/minute")
 async def sync_statement(
-    telegram_id: int = Depends(telegram_user_id),
+    request: Request, telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
     """Sync last 31 days of transactions from Monobank for all accounts."""

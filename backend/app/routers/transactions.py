@@ -46,7 +46,7 @@ def _tx_out(doc: dict[str, Any]) -> dict[str, Any]:
 @router.post("/transactions", status_code=201)
 @limiter.limit("15/minute")
 async def create_transaction(
-    body: TransactionCreate,
+    request: Request, body: TransactionCreate,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, Any]:
@@ -127,7 +127,7 @@ async def list_transactions(
 @router.patch("/transactions/{tx_id}")
 @limiter.limit("15/minute")
 async def update_transaction(
-    tx_id: str,
+    request: Request, tx_id: str,
     body: TransactionUpdate,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
@@ -153,7 +153,7 @@ async def update_transaction(
 @router.delete("/transactions/{tx_id}")
 @limiter.limit("15/minute")
 async def delete_transaction(
-    tx_id: str,
+    request: Request, tx_id: str,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, bool]:
