@@ -47,7 +47,13 @@ function parseErrorMessage(text, status, statusText) {
   }
   try {
     const parsed = JSON.parse(body);
-    if (parsed?.detail) return String(parsed.detail);
+    if (parsed?.detail) {
+      if (typeof parsed.detail === "string") return parsed.detail;
+      if (Array.isArray(parsed.detail)) {
+        return parsed.detail.map(e => e.msg || JSON.stringify(e)).join(", ");
+      }
+      return JSON.stringify(parsed.detail);
+    }
   } catch {
     // no-op
   }

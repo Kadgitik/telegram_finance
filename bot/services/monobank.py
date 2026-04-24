@@ -29,7 +29,7 @@ _INTERNAL_TRANSFER_RE = re.compile(
 )
 
 _CREDIT_RE = re.compile(
-    r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості",
+    r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості|кредит до завтра",
     re.IGNORECASE,
 )
 
@@ -79,6 +79,12 @@ async def _request(
                 if not text.strip():
                     return {}
                 return await resp.json()
+            
+            if resp.status == 429:
+                if rate_limit_key:
+                    _last_call[rate_limit_key] = time.monotonic()
+                raise MonobankError(429, "Забагато запитів до Monobank. Зачекайте 1 хвилину.")
+                
             try:
                 data = await resp.json()
                 desc = data.get("errorDescription", str(data))
