@@ -25,6 +25,7 @@ def pipeline_balance_month(
                 "date": {"$gte": start, "$lt": end_excl},
                 "internal_transfer": {"$ne": True},
                 "deleted": {"$ne": True},
+                "$nor": [{"type": "income", "category": "Кредит"}],
             }
         },
         {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},

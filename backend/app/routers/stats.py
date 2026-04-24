@@ -158,11 +158,12 @@ async def bootstrap(
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 
-    tx_match = {
+    tx_match: dict[str, Any] = {
         "telegram_id": telegram_id, 
         "date": {"$gte": start, "$lt": end_excl},
         "internal_transfer": {"$ne": True},
         "deleted": {"$ne": True},
+        "$nor": [{"type": "income", "category": "Кредит"}],
     }
 
     async def _balance_agg():
