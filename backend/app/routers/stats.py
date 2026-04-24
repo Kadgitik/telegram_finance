@@ -50,7 +50,7 @@ _INTERNAL_RX = re.compile(
 @router.post("/admin/fix-transfers")
 @limiter.limit("2/minute")
 async def fix_transfers(
-    telegram_id: int = Depends(telegram_user_id),
+    request: Request, telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
     docs = await db["transactions"].find(
@@ -71,7 +71,7 @@ async def fix_transfers(
 @router.post("/admin/clear-transactions")
 @limiter.limit("2/minute")
 async def clear_transactions(
-    telegram_id: int = Depends(telegram_user_id),
+    request: Request, telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
     """Delete all transactions for the user so they can re-sync from Monobank."""
@@ -373,7 +373,7 @@ async def stats_trend(
 @router.get("/export/csv", response_class=PlainTextResponse)
 @limiter.limit("2/minute")
 async def export_csv(
-    telegram_id: int = Depends(telegram_user_id),
+    request: Request, telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> PlainTextResponse:
     rows = await queries.export_transactions_csv_rows(db, telegram_id)
@@ -401,7 +401,7 @@ async def export_csv(
 
 @router.get("/fx/usd-uah")
 @limiter.limit("15/minute")
-async def usd_uah_rate() -> dict[str, Any]:
+async def usd_uah_rate(request: Request, ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     updated_at = _FX_CACHE.get("updated_at")
     if (

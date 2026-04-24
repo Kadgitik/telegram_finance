@@ -122,7 +122,7 @@ async def get_savings(
 @router.post("/savings", status_code=201)
 @limiter.limit("15/minute")
 async def add_savings(
-    body: SavingsCreate,
+    request: Request, body: SavingsCreate,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
@@ -135,7 +135,7 @@ async def add_savings(
 @router.delete("/savings/{item_id}")
 @limiter.limit("15/minute")
 async def delete_savings(
-    item_id: str,
+    request: Request, item_id: str,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
@@ -188,7 +188,7 @@ async def get_goals(
 @router.post("/goals", status_code=201)
 @limiter.limit("15/minute")
 async def create_goal(
-    body: GoalCreate,
+    request: Request, body: GoalCreate,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
@@ -201,7 +201,7 @@ async def create_goal(
 @router.delete("/goals/{goal_id}")
 @limiter.limit("15/minute")
 async def delete_goal(
-    goal_id: str,
+    request: Request, goal_id: str,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
@@ -218,7 +218,7 @@ async def delete_goal(
 @router.post("/goals/{goal_id}/deposit")
 @limiter.limit("15/minute")
 async def deposit_goal(
-    goal_id: str,
+    request: Request, goal_id: str,
     body: GoalDeposit,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),

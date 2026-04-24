@@ -44,7 +44,7 @@ async def get_debts(
 @router.post("/debts", status_code=201)
 @limiter.limit("15/minute")
 async def create_debt(
-    body: DebtCreate,
+    request: Request, body: DebtCreate,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
@@ -59,7 +59,7 @@ async def create_debt(
 @router.post("/debts/{item_id}/resolve")
 @limiter.limit("15/minute")
 async def resolve_debt_endpoint(
-    item_id: str,
+    request: Request, item_id: str,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
@@ -79,7 +79,7 @@ async def resolve_debt_endpoint(
 @router.delete("/debts/{item_id}")
 @limiter.limit("15/minute")
 async def delete_debt_endpoint(
-    item_id: str,
+    request: Request, item_id: str,
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:

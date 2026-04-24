@@ -235,7 +235,7 @@ def _detect_delimiter(first_line: str) -> str:
 @router.post("/csv")
 @limiter.limit("5/minute")
 async def import_csv(
-    file: UploadFile = File(...),
+    request: Request, file: UploadFile = File(...),
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, Any]:
