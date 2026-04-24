@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException
+from starlette.requests import Request
 
 from backend.app.deps import telegram_user_id
 from backend.app.limiter import limiter

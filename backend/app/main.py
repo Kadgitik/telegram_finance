@@ -37,8 +37,8 @@ async def lifespan(app: FastAPI):
     # Run migrations
     try:
         import re
-        credit_re = re.compile(r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості", re.IGNORECASE)
-        async for tx in db["transactions"].find({"source": "monobank", "category": {"$ne": "Кредит"}}):
+        credit_re = re.compile(r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості|кредит до завтра", re.IGNORECASE)
+        async for tx in db["transactions"].find({"category": {"$ne": "Кредит"}}):
             desc = tx.get("description", "")
             if credit_re.search(desc):
                 await db["transactions"].update_one(

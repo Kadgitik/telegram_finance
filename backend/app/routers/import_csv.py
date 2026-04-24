@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from starlette.requests import Request
 from backend.app.limiter import limiter
 
 from backend.app.deps import telegram_user_id
@@ -38,7 +39,7 @@ _INTERNAL_TRANSFER_RE = re.compile(
 )
 
 _CREDIT_RE = re.compile(
-    r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості",
+    r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості|кредит до завтра",
     re.IGNORECASE,
 )
 
