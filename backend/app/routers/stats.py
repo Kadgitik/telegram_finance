@@ -380,23 +380,32 @@ async def export_csv(
     rows = await queries.export_transactions_csv_rows(db, telegram_id)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["date", "type", "source", "amount", "category", "mcc", "description", "comment"])
+    w.writerow(["Дата", "Тип", "Джерело", "Сума", "Категорія", "Опис", "Коментар банку"])
     for r in rows:
         d = r.get("date") or r.get("created_at")
+        d_str = ""
+        if d:
+            if hasattr(d, "strftime"):
+                d_str = d.strftime("%Y-%m-%d %H:%M")
+            else:
+                d_str = str(d)
+                
+        type_str = "Дохід" if r.get("type") == "income" else "Витрата"
+        source_str = "Monobank" if r.get("source") == "monobank" else "Готівка"
+        
         w.writerow([
-            d.isoformat() if hasattr(d, "isoformat") else str(d),
-            r.get("type"),
-            r.get("source", "cash"),
+            d_str,
+            type_str,
+            source_str,
             r.get("amount"),
             r.get("category"),
-            r.get("mcc"),
             r.get("description"),
             r.get("comment"),
         ])
     return PlainTextResponse(
         buf.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="transactions.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="transactions_export.csv"'},
     )
 
 
