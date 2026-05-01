@@ -239,13 +239,16 @@ async def delete_transaction(
 
 async def update_transaction(
     db: AsyncIOMotorDatabase, telegram_id: int, oid: ObjectId,
-    *, category: str | None = None, description: str | None = None
+    *, category: str | None = None, description: str | None = None,
+    date: datetime | None = None
 ) -> bool:
     update_fields: dict[str, Any] = {}
     if category is not None:
         update_fields["category"] = category
     if description is not None:
         update_fields["description"] = description
+    if date is not None:
+        update_fields["date"] = date
         
     if not update_fields:
         return False

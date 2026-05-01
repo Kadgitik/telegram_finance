@@ -69,6 +69,13 @@ async def create_transaction(
     if recent:
         return _tx_out(recent)
 
+    date_val = None
+    if body.date:
+        try:
+            date_val = datetime.fromisoformat(body.date.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+
     oid = await queries.add_transaction(
         db, telegram_id,
         source="cash",
@@ -79,6 +86,7 @@ async def create_transaction(
         comment=body.comment or None,
         original_amount=body.original_amount,
         currency_code=body.original_currency,
+        date=date_val,
     )
     doc = await queries.get_transaction(db, telegram_id, oid)
     assert doc
@@ -137,10 +145,18 @@ async def update_transaction(
     except InvalidId as e:
         raise HTTPException(400, "Невірний id") from e
 
+    date_val = None
+    if body.date:
+        try:
+            date_val = datetime.fromisoformat(body.date.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+
     ok = await queries.update_transaction(
         db, telegram_id, oid, 
         category=body.category, 
-        description=body.description
+        description=body.description,
+        date=date_val
     )
     if not ok:
         raise HTTPException(404, "Не знайдено або нічого не змінено")

@@ -20,6 +20,7 @@ export default function TransactionDetailsModal({
   const [isEditing, setIsEditing] = useState(false);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -32,6 +33,16 @@ export default function TransactionDetailsModal({
     if (isOpen && transaction) {
       setDescription(transaction.description || "");
       setCategory(transaction.category || "");
+      if (transaction.date) {
+         const d = new Date(transaction.date);
+         const tzoffset = d.getTimezoneOffset() * 60000;
+         const localISOTime = (new Date(d - tzoffset)).toISOString().slice(0, 16);
+         setSelectedDate(localISOTime);
+      } else {
+         const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+         const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+         setSelectedDate(localISOTime);
+      }
       setIsEditing(false);
       setSaving(false);
       setDeleting(false);
@@ -59,6 +70,7 @@ export default function TransactionDetailsModal({
       const updated = await api.patch(`/transactions/${transaction.id}`, initData, {
         category,
         description: description.trim(),
+        date: new Date(selectedDate).toISOString()
       });
       patchHomeCacheTransaction(updated);
       h.success();
@@ -285,16 +297,28 @@ export default function TransactionDetailsModal({
                       </div>
                     </div>
 
-                    {/* Description */}
-                    <div>
-                      <p className="text-sm text-[var(--app-hint)] mb-2 font-medium pl-1">Опис</p>
-                      <input
-                        className="w-full rounded-2xl px-4 py-3.5 bg-white/5 border border-white/10 placeholder:text-white/30 text-[15px] focus:outline-none focus:border-[var(--app-button)] transition-colors text-white"
-                        placeholder="Додайте опис..."
-                        value={description}
-                        disabled={saving}
-                        onChange={(e) => setDescription(e.target.value)}
-                      />
+                    {/* Description & Date */}
+                    <div className="grid grid-cols-1 gap-4 mb-6">
+                      <div>
+                        <p className="text-sm text-[var(--app-hint)] mb-2 font-medium pl-1">Опис</p>
+                        <input
+                          className="w-full rounded-2xl px-4 py-3.5 bg-white/5 border border-white/10 placeholder:text-white/30 text-[15px] focus:outline-none focus:border-[var(--app-button)] transition-colors text-white"
+                          placeholder="Додайте опис..."
+                          value={description}
+                          disabled={saving}
+                          onChange={(e) => setDescription(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm text-[var(--app-hint)] mb-2 font-medium pl-1">Дата</p>
+                        <input
+                          type="datetime-local"
+                          className="w-full rounded-2xl px-4 py-3.5 bg-white/5 border border-white/10 text-[15px] focus:outline-none focus:border-[var(--app-button)] transition-colors text-white"
+                          value={selectedDate}
+                          disabled={saving}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                        />
+                      </div>
                     </div>
                     
                     <button

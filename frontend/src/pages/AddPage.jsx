@@ -25,6 +25,10 @@ export default function AddPage() {
   const [amountStr, setAmountStr] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+    return new Date(Date.now() - tzoffset).toISOString().slice(0, 16);
+  });
   const [saving, setSaving] = useState(false);
   const [currency, setCurrency] = useState("UAH");
   const savingRef = useRef(false);
@@ -205,13 +209,21 @@ export default function AddPage() {
         )}
       </div>
 
-      {/* Description */}
-      <input
-        className="w-full rounded-xl px-3 py-3 bg-[var(--app-secondary)] border border-white/10 placeholder:text-[var(--app-hint)] text-sm"
-        placeholder="Опис (необов'язково)..."
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      />
+      {/* Additional Details */}
+      <div className="flex gap-2 mb-2">
+        <input
+          className="flex-1 rounded-xl px-3 py-3 bg-[var(--app-secondary)] border border-white/10 placeholder:text-[var(--app-hint)] text-sm"
+          placeholder="Опис (необов'язково)..."
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <input
+          type="datetime-local"
+          className="w-[140px] rounded-xl px-2 py-3 bg-[var(--app-secondary)] border border-white/10 text-white/80 text-[13px] text-center"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+        />
+      </div>
 
       {/* Save button */}
       <button
@@ -240,6 +252,7 @@ export default function AddPage() {
               description,
               original_amount: originalAmount,
               original_currency: originalCurrency,
+              date: new Date(selectedDate).toISOString()
             });
             invalidateHomeCache();
             h.success();
