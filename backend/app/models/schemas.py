@@ -13,11 +13,13 @@ class TransactionCreate(BaseModel):
     comment: str = ""
     original_amount: float | None = None
     original_currency: str | None = None
+    date: str | None = None
 
 
 class TransactionUpdate(BaseModel):
     category: str | None = None
     description: str | None = None
+    date: str | None = None
 
 
 class CategoryCreate(BaseModel):
