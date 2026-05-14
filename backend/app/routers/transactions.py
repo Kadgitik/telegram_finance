@@ -11,6 +11,7 @@ from starlette.requests import Request
 from backend.app.deps import telegram_user_id
 from backend.app.limiter import limiter
 from backend.app.models.schemas import TransactionCreate, TransactionUpdate
+from backend.app.routers._common import tx_out as _tx_out
 from backend.app.services.periods import month_window_from_key, resolve_pay_day
 from bot.db import queries
 from bot.db.mongo import get_db
@@ -23,26 +24,6 @@ def _db() -> AsyncIOMotorDatabase:
     return get_db()
 
 
-def _tx_out(doc: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "id": str(doc["_id"]),
-        "source": doc.get("source", "cash"),
-        "type": doc["type"],
-        "amount": doc["amount"],
-        "original_amount": doc.get("original_amount"),
-        "currency_code": doc.get("currency_code"),
-        "category": doc.get("category", "Інше"),
-        "mcc": doc.get("mcc"),
-        "description": doc.get("description", ""),
-        "comment": doc.get("comment"),
-        "cashback": doc.get("cashback", 0),
-        "hold": doc.get("hold", False),
-        "date": doc.get("date", doc.get("created_at", "")).isoformat()
-        if hasattr(doc.get("date", doc.get("created_at", "")), "isoformat")
-        else str(doc.get("date", "")),
-    }
-
-
 @router.post("/transactions", status_code=201)
 @limiter.limit("15/minute")
 async def create_transaction(
@@ -50,31 +31,32 @@ async def create_transaction(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict[str, Any]:
-    """Add a manual (cash) transaction."""
-    # Idempotency: skip if same tx within 1 second for cash
-    # This prevents double-clicks while allowing fast manual entry
-    now = datetime.now(timezone.utc)
-    recent = await db["transactions"].find_one(
-        {
-            "telegram_id": telegram_id,
-            "source": "cash",
-            "type": body.type,
-            "amount": float(body.amount),
-            "category": body.category,
-            "description": body.description,
-            "created_at": {"$gte": now - timedelta(seconds=1)},
-        },
-        sort=[("created_at", -1)],
-    )
-    if recent:
-        return _tx_out(recent)
+    """Add a manual (cash) transaction.
 
+    Idempotency: a 1-second findOneAndUpdate "claim" prevents double-clicks from
+    creating duplicate rows even under concurrent requests (find_one + insert
+    was racy).
+    """
+    now = datetime.now(timezone.utc)
     date_val = None
     if body.date:
         try:
             date_val = datetime.fromisoformat(body.date.replace("Z", "+00:00"))
         except ValueError:
             pass
+
+    dup_filter = {
+        "telegram_id": telegram_id,
+        "source": "cash",
+        "type": body.type,
+        "amount": float(body.amount),
+        "category": body.category,
+        "description": body.description,
+        "created_at": {"$gte": now - timedelta(seconds=1)},
+    }
+    existing = await db["transactions"].find_one(dup_filter, sort=[("created_at", -1)])
+    if existing:
+        return _tx_out(existing)
 
     oid = await queries.add_transaction(
         db, telegram_id,

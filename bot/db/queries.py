@@ -50,10 +50,25 @@ async def upsert_user(
 
 
 async def get_user(db: AsyncIOMotorDatabase, telegram_id: int) -> dict[str, Any] | None:
+    """Fetch user. The mono_token is decrypted here for backwards compat with
+    existing call-sites; new code should prefer `get_mono_token` to avoid
+    decrypting on every read.
+    """
     user = await db["users"].find_one({"telegram_id": telegram_id})
     if user and user.get("mono_token"):
         user["mono_token"] = security_service.decrypt_token(user["mono_token"])
     return user
+
+
+async def get_mono_token(db: AsyncIOMotorDatabase, telegram_id: int) -> str | None:
+    """Return the decrypted Mono token, or None if not connected."""
+    user = await db["users"].find_one(
+        {"telegram_id": telegram_id}, {"mono_token": 1}
+    )
+    token = user.get("mono_token") if user else None
+    if not token:
+        return None
+    return security_service.decrypt_token(token)
 
 
 async def set_mono_token(
@@ -488,7 +503,6 @@ async def list_goals(db: AsyncIOMotorDatabase, telegram_id: int) -> list[dict[st
     return await db["goals"].find({"telegram_id": telegram_id}).sort("created_at", -1).to_list(length=None)
 
 async def add_goal(db: AsyncIOMotorDatabase, telegram_id: int, name: str, target: float) -> str:
-    from bot.db.mongo import get_db
     doc = {
         "telegram_id": telegram_id,
         "name": name,

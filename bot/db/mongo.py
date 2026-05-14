@@ -1,16 +1,30 @@
 from __future__ import annotations
 
+import logging
+import re
+
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from bot import config
 
+_LOGGER = logging.getLogger(__name__)
 _client: AsyncIOMotorClient | None = None
+
+
+def _mask_uri(uri: str) -> str:
+    """Strip user:password@ from a Mongo URI so tracebacks don't leak creds."""
+    return re.sub(r"://[^@/]+@", "://***:***@", uri or "")
 
 
 def get_client() -> AsyncIOMotorClient:
     global _client
     if _client is None:
-        _client = AsyncIOMotorClient(config.MONGODB_URI)
+        try:
+            _client = AsyncIOMotorClient(config.MONGODB_URI)
+        except Exception as e:
+            _LOGGER.error("Mongo client init failed (uri=%s): %s",
+                          _mask_uri(config.MONGODB_URI), type(e).__name__)
+            raise RuntimeError("MongoDB connection unavailable") from None
     return _client
 
 
@@ -55,3 +69,7 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
 
     savings = db["savings"]
     await savings.create_index([("telegram_id", 1), ("created_at", -1)])
+
+    # TTL index for single-use export tokens.
+    from backend.app.services.export_tokens import ensure_indexes as _export_idx
+    await _export_idx(db)

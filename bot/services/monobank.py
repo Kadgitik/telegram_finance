@@ -3,41 +3,25 @@
 from __future__ import annotations
 
 import asyncio
-import re
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 import aiohttp
 
+from bot.constants import KOPECKS_PER_UAH
 from bot.services.mcc import mcc_to_category
-
-# Опис Mono для внутрішніх переказів (між своїми картками/рахунками/банками).
-_INTERNAL_TRANSFER_RE = re.compile(
-    r"^(З|Зі|На)\s+.*(картки|картку|карти|карту|банки|банку|рахунку|рахунок)"
-    r"|^Переказ на картку"
-    r"|^Переказ на карту"
-    r"|^Поповнення картки"
-    r"|^Поповнення карти"
-    r"|^Між рахунками"
-    r"|^Переказ між рахунками"
-    r"|^На банку\b"
-    r"|^З банки\b"
-    r"|^Переказ$"
-    r"|^Переказ коштів$",
-    re.IGNORECASE,
-)
-
-_CREDIT_RE = re.compile(
-    r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості|кредит до завтра",
-    re.IGNORECASE,
-)
+from bot.services.classifiers import is_internal_transfer, is_credit
 
 BASE_URL = "https://api.monobank.ua"
 
-# Rate-limit: 1 request per 60s per endpoint
+# Rate-limit: 1 request per 60s per endpoint.
 _last_call: dict[str, float] = {}
 _RATE_LIMIT_SECONDS = 60
+
+# Shared aiohttp session — created lazily, closed on app shutdown.
+_session: aiohttp.ClientSession | None = None
+_session_lock = asyncio.Lock()
 
 
 class MonobankError(Exception):
@@ -47,6 +31,24 @@ class MonobankError(Exception):
         self.status = status
         self.description = description
         super().__init__(f"Monobank API {status}: {description}")
+
+
+async def get_session() -> aiohttp.ClientSession:
+    global _session
+    if _session is None or _session.closed:
+        async with _session_lock:
+            if _session is None or _session.closed:
+                _session = aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=15)
+                )
+    return _session
+
+
+async def close_session() -> None:
+    global _session
+    if _session is not None and not _session.closed:
+        await _session.close()
+    _session = None
 
 
 async def _rate_limit_wait(endpoint: str) -> None:
@@ -71,26 +73,26 @@ async def _request(
 
     headers = {"X-Token": token}
     url = f"{BASE_URL}{path}"
+    session = await get_session()
 
-    async with aiohttp.ClientSession() as session:
-        async with session.request(method, url, headers=headers, json=json_body, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-            if resp.status == 200:
-                text = await resp.text()
-                if not text.strip():
-                    return {}
-                return await resp.json()
-            
-            if resp.status == 429:
-                if rate_limit_key:
-                    _last_call[rate_limit_key] = time.monotonic()
-                raise MonobankError(429, "Забагато запитів до Monobank. Зачекайте 1 хвилину.")
-                
-            try:
-                data = await resp.json()
-                desc = data.get("errorDescription", str(data))
-            except Exception:
-                desc = await resp.text()
-            raise MonobankError(resp.status, desc)
+    async with session.request(method, url, headers=headers, json=json_body) as resp:
+        if resp.status == 200:
+            text = await resp.text()
+            if not text.strip():
+                return {}
+            return await resp.json()
+
+        if resp.status == 429:
+            if rate_limit_key:
+                _last_call[rate_limit_key] = time.monotonic()
+            raise MonobankError(429, "Забагато запитів до Monobank. Зачекайте 1 хвилину.")
+
+        try:
+            data = await resp.json()
+            desc = data.get("errorDescription", str(data))
+        except Exception:
+            desc = await resp.text()
+        raise MonobankError(resp.status, desc)
 
 
 async def get_client_info(token: str) -> dict[str, Any]:
@@ -106,8 +108,7 @@ async def get_statement(
 ) -> list[dict[str, Any]]:
     """GET /personal/statement/{account}/{from}/{to} — transaction list.
 
-    Max period: 31 days + 1 hour (2682000 seconds).
-    Max 500 transactions per response.
+    Max period: 31 days + 1 hour. Max 500 transactions per response.
     """
     path = f"/personal/statement/{account}/{from_ts}"
     if to_ts is not None:
@@ -129,11 +130,11 @@ async def set_webhook(token: str, webhook_url: str) -> dict:
 def parse_statement_item(item: dict[str, Any], telegram_id: int) -> dict[str, Any]:
     """Convert a Monobank StatementItem into our transaction document."""
     amount_raw = item.get("amount", 0)  # in kopecks, negative = expense
-    amount_uah = abs(amount_raw) / 100.0
+    amount_uah = abs(amount_raw) / KOPECKS_PER_UAH
     tx_type = "income" if amount_raw > 0 else "expense"
 
     op_amount_raw = item.get("operationAmount", amount_raw)
-    original_amount = abs(op_amount_raw) / 100.0
+    original_amount = abs(op_amount_raw) / KOPECKS_PER_UAH
 
     mcc = item.get("mcc", 0)
     category = mcc_to_category(mcc)
@@ -142,20 +143,15 @@ def parse_statement_item(item: dict[str, Any], telegram_id: int) -> dict[str, An
     tx_date = datetime.fromtimestamp(tx_time, tz=timezone.utc) if tx_time else datetime.now(timezone.utc)
 
     cashback_raw = item.get("cashbackAmount", 0)
-    balance_raw = item.get("balance", 0)
+    balance_raw = item.get("balance")
+    balance_after = balance_raw / KOPECKS_PER_UAH if balance_raw is not None else None
 
-    # Mono може надіслати description: null — тому (... or "").
     description = (item.get("description") or "").strip()
-    # Detect internal transfers by description regex OR by MCC 4829 (money transfer)
-    # with typical internal transfer descriptions
-    is_internal = bool(_INTERNAL_TRANSFER_RE.search(description))
-    # MCC 4829 = грошовий переказ — if combined with empty/generic description, likely internal
-    if not is_internal and mcc == 4829 and not description:
-        is_internal = True
-        
-    if _CREDIT_RE.search(description):
+    internal = is_internal_transfer(description, mcc)
+
+    if is_credit(description):
         category = "Кредит"
-        is_internal = False
+        internal = False
 
     return {
         "telegram_id": telegram_id,
@@ -169,10 +165,10 @@ def parse_statement_item(item: dict[str, Any], telegram_id: int) -> dict[str, An
         "mcc": mcc,
         "description": description,
         "comment": item.get("comment") or None,
-        "cashback": abs(cashback_raw) / 100.0,
-        "balance_after": balance_raw / 100.0,
+        "cashback": abs(cashback_raw) / KOPECKS_PER_UAH,
+        "balance_after": balance_after,
         "hold": bool(item.get("hold", False)),
-        "internal_transfer": is_internal,
+        "internal_transfer": internal,
         "deleted": False,
         "date": tx_date,
         "created_at": datetime.now(timezone.utc),

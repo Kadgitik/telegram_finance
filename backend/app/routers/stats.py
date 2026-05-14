@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
-import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -14,6 +13,9 @@ from starlette.requests import Request
 from backend.app.limiter import limiter
 
 from backend.app.deps import telegram_user_id
+from backend.app.routers._common import tx_out as _tx_out
+from backend.app.services.csrf import require_action_confirm
+from backend.app.services.export_tokens import issue_export_token, verify_and_consume_export_token
 from backend.app.services.periods import (
     financial_month_key_for_date,
     human_period,
@@ -23,6 +25,7 @@ from backend.app.services.periods import (
 )
 from bot.db import queries
 from bot.db.mongo import get_db
+from bot.services.classifiers import INTERNAL_TRANSFER_RE
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 router = APIRouter()
@@ -33,22 +36,8 @@ _FX_TTL_SECONDS = 600
 def _db() -> AsyncIOMotorDatabase:
     return get_db()
 
-_INTERNAL_RX = re.compile(
-    r"^(З|Зі|На)\s+.*(картки|картку|карти|карту|банки|банку|рахунку|рахунок)"
-    r"|^Переказ на картку"
-    r"|^Переказ на карту"
-    r"|^Поповнення картки"
-    r"|^Поповнення карти"
-    r"|^Між рахунками"
-    r"|^Переказ між рахунками"
-    r"|^На банку\b"
-    r"|^З банки\b"
-    r"|^Переказ$"
-    r"|^Переказ коштів$",
-    re.IGNORECASE,
-)
 
-@router.post("/admin/fix-transfers")
+@router.post("/me/fix-transfers")
 @limiter.limit("2/minute")
 async def fix_transfers(
     request: Request, telegram_id: int = Depends(telegram_user_id),
@@ -60,7 +49,7 @@ async def fix_transfers(
     count = 0
     for d in docs:
         desc = d.get("description", "").strip()
-        if _INTERNAL_RX.search(desc):
+        if INTERNAL_TRANSFER_RE.search(desc):
             await db["transactions"].update_one(
                 {"_id": d["_id"]},
                 {"$set": {"internal_transfer": True}}
@@ -69,35 +58,15 @@ async def fix_transfers(
     return {"fixed": count}
 
 
-@router.post("/admin/clear-transactions")
+@router.post("/me/clear-transactions", dependencies=[Depends(require_action_confirm)])
 @limiter.limit("2/minute")
 async def clear_transactions(
     request: Request, telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
-    """Delete all transactions for the user so they can re-sync from Monobank."""
+    """Delete all transactions for the calling user so they can re-sync from Monobank."""
     result = await db["transactions"].delete_many({"telegram_id": telegram_id})
     return {"deleted": result.deleted_count}
-
-
-def _tx_out(doc: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "id": str(doc["_id"]),
-        "source": doc.get("source", "cash"),
-        "type": doc["type"],
-        "amount": doc["amount"],
-        "original_amount": doc.get("original_amount"),
-        "currency_code": doc.get("currency_code"),
-        "category": doc.get("category", "Інше"),
-        "mcc": doc.get("mcc"),
-        "description": doc.get("description", ""),
-        "comment": doc.get("comment"),
-        "cashback": doc.get("cashback", 0),
-        "hold": doc.get("hold", False),
-        "date": doc.get("date", doc.get("created_at", "")).isoformat()
-        if hasattr(doc.get("date", doc.get("created_at", "")), "isoformat")
-        else str(doc.get("date", "")),
-    }
 
 
 @router.get("/balance")
@@ -371,12 +340,29 @@ async def stats_trend(
     }
 
 
+@router.post("/export/token")
+@limiter.limit("10/minute")
+async def export_token(
+    request: Request, telegram_id: int = Depends(telegram_user_id),
+) -> dict:
+    """Issue a short-lived signed token so the SPA can trigger a CSV download
+    via window.open without putting initData in the URL.
+    """
+    token, exp = issue_export_token(telegram_id)
+    return {"token": token, "expires_at": exp}
+
+
 @router.get("/export/csv", response_class=PlainTextResponse)
 @limiter.limit("2/minute")
 async def export_csv(
-    request: Request, telegram_id: int = Depends(telegram_user_id),
+    request: Request,
+    token: str = Query(..., min_length=10, max_length=200),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> PlainTextResponse:
+    try:
+        telegram_id = await verify_and_consume_export_token(db, token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
     rows = await queries.export_transactions_csv_rows(db, telegram_id)
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -425,12 +411,23 @@ async def usd_uah_rate(request: Request, ) -> dict[str, Any]:
             "source": "cache",
             "updated_at": updated_at.isoformat(),
         }
+    data = None
+    last_exc: Exception | None = None
     async with httpx.AsyncClient(timeout=6.0) as client:
-        resp = await client.get(
-            "https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=11"
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        for attempt in range(3):
+            try:
+                resp = await client.get(
+                    "https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=11"
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except (httpx.HTTPError, ValueError) as e:
+                last_exc = e
+                if attempt < 2:
+                    await asyncio.sleep(0.3 * (attempt + 1))
+    if data is None:
+        raise HTTPException(502, f"Privatbank недоступний: {last_exc}")
     usd = next((x for x in data if x.get("ccy") == "USD" and x.get("base_ccy") == "UAH"), None)
     if not usd:
         raise HTTPException(502, "Не вдалося отримати курс USD/UAH")

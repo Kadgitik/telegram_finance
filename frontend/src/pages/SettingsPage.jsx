@@ -61,7 +61,7 @@ export default function SettingsPage() {
   const disconnect = async () => {
     if (!initData) return;
     try {
-      await api.post("/mono/disconnect", initData, {});
+      await api.post("/mono/disconnect", initData, {}, { "X-Action-Confirm": "yes" });
       setStatus(null);
       setMsg("Monobank відключено");
       h.success();
@@ -111,9 +111,24 @@ export default function SettingsPage() {
     }
   };
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     if (!initData) return;
-    window.open(`/api/export/csv?${new URLSearchParams({ authorization: `tma ${initData}` })}`, "_blank");
+    try {
+      const { token } = await api.post("/export/token", initData, {});
+      const r = await fetch(`/api/export/csv?token=${encodeURIComponent(token)}`);
+      if (!r.ok) throw new Error(`Помилка ${r.status}`);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "transactions_export.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setErr(String(e.message || "Помилка експорту"));
+    }
   };
 
   const connected = status?.connected;
