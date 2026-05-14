@@ -4,9 +4,21 @@ const CACHE_STORAGE_KEY = "finance:get-cache:v1";
 const getCache = new Map();
 const inFlightGet = new Map();
 
+function userIdFromInitData(initData) {
+  if (!initData) return "anon";
+  try {
+    const params = new URLSearchParams(initData);
+    const userRaw = params.get("user");
+    if (!userRaw) return "anon";
+    const user = JSON.parse(userRaw);
+    return user?.id != null ? String(user.id) : "anon";
+  } catch {
+    return "anon";
+  }
+}
+
 function keyFor(path, initData) {
-  const userKey = (initData || "").slice(0, 48);
-  return `${userKey}|${path}`;
+  return `${userIdFromInitData(initData)}|${path}`;
 }
 
 function loadCacheFromStorage() {
@@ -68,6 +80,36 @@ function clearGetCache() {
   } catch {
     // ignore storage errors
   }
+}
+
+// Map mutation path → list of GET path-prefixes whose cache should be dropped.
+// Anything not listed falls back to a full cache clear (safe default).
+const INVALIDATIONS = [
+  { match: /^\/transactions/, prefixes: ["/transactions", "/balance", "/bootstrap", "/stats", "/stats/trend"] },
+  { match: /^\/savings/,      prefixes: ["/savings", "/bootstrap"] },
+  { match: /^\/goals/,        prefixes: ["/goals", "/savings"] },
+  { match: /^\/debts/,        prefixes: ["/debts"] },
+  { match: /^\/categories/,   prefixes: ["/categories", "/bootstrap"] },
+  { match: /^\/mono/,         prefixes: ["/mono", "/savings", "/balance", "/bootstrap"] },
+  { match: /^\/import/,       prefixes: ["/transactions", "/balance", "/bootstrap", "/stats", "/stats/trend"] },
+  { match: /^\/me\//,         prefixes: ["/transactions", "/balance", "/bootstrap", "/stats", "/stats/trend"] },
+];
+
+function invalidateForMutation(mutationPath) {
+  const rule = INVALIDATIONS.find((r) => r.match.test(mutationPath));
+  if (!rule) {
+    clearGetCache();
+    return;
+  }
+  for (const key of [...getCache.keys()]) {
+    const after = key.indexOf("|");
+    const path = after >= 0 ? key.slice(after + 1) : key;
+    if (rule.prefixes.some((p) => path.startsWith(p))) {
+      getCache.delete(key);
+      inFlightGet.delete(key);
+    }
+  }
+  persistCacheToStorage();
 }
 
 function getCached(path, initData) {
@@ -137,13 +179,13 @@ async function request(path, initData, options = {}) {
 
 export const api = {
   get: (p, initData, opts = {}) => request(p, initData, { method: "GET", ...opts }),
-  post: (p, initData, body) =>
+  post: (p, initData, body, extraHeaders = {}) =>
     request(p, initData, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...extraHeaders },
       body: JSON.stringify(body),
     }).then((res) => {
-      clearGetCache();
+      invalidateForMutation(p);
       return res;
     }),
   patch: (p, initData, body) =>
@@ -152,7 +194,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((res) => {
-      clearGetCache();
+      invalidateForMutation(p);
       return res;
     }),
   put: (p, initData, body) =>
@@ -161,12 +203,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((res) => {
-      clearGetCache();
+      invalidateForMutation(p);
       return res;
     }),
   delete: (p, initData) =>
     request(p, initData, { method: "DELETE" }).then((res) => {
-      clearGetCache();
+      invalidateForMutation(p);
       return res;
     }),
   upload: async (p, initData, formData) => {
@@ -181,7 +223,7 @@ export const api = {
     if (!r.ok) throw new Error(parseErrorMessage(text, r.status, r.statusText));
     try {
       const data = JSON.parse(text);
-      clearGetCache();
+      invalidateForMutation(p);
       return data;
     } catch {
       return text;

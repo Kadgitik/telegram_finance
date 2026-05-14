@@ -6,8 +6,7 @@ import csv
 import hashlib
 import io
 import logging
-import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -16,32 +15,12 @@ from backend.app.limiter import limiter
 
 from backend.app.deps import telegram_user_id
 from bot.db.mongo import get_db
+from bot.services.classifiers import is_credit, is_internal_transfer
 from bot.services.mcc import mcc_to_category
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 _LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix="/import")
-
-# Regex for internal transfers (same as in monobank.py)
-_INTERNAL_TRANSFER_RE = re.compile(
-    r"^(З|Зі|На)\s+.*(картки|картку|карти|карту|банки|банку|рахунку|рахунок)"
-    r"|^Переказ на картку"
-    r"|^Переказ на карту"
-    r"|^Поповнення картки"
-    r"|^Поповнення карти"
-    r"|^Між рахунками"
-    r"|^Переказ між рахунками"
-    r"|^На банку\b"
-    r"|^З банки\b"
-    r"|^Переказ$"
-    r"|^Переказ коштів$",
-    re.IGNORECASE,
-)
-
-_CREDIT_RE = re.compile(
-    r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості|кредит до завтра",
-    re.IGNORECASE,
-)
 
 
 def _db() -> AsyncIOMotorDatabase:
@@ -191,12 +170,8 @@ def _parse_mono_csv_row(row: dict[str, str], telegram_id: int) -> dict[str, Any]
     currency_map = {"UAH": 980, "USD": 840, "EUR": 978, "₴": 980, "$": 840, "€": 978}
     currency_code = currency_map.get(currency.upper(), 980)
 
-    # Detect internal transfers
-    is_internal = bool(_INTERNAL_TRANSFER_RE.search(description))
-    if not is_internal and mcc == 4829 and not description:
-        is_internal = True
-
-    if _CREDIT_RE.search(description):
+    is_internal = is_internal_transfer(description, mcc)
+    if is_credit(description):
         category = "Кредит"
         is_internal = False
 
@@ -279,38 +254,66 @@ async def import_csv(
     error_count = 0
     total = len(rows)
 
+    parsed: list[dict[str, Any]] = []
     for row in rows:
         doc = _parse_mono_csv_row(row, telegram_id)
         if doc is None:
             error_count += 1
             continue
+        parsed.append(doc)
 
-        # Check for duplicate using csv_import_id
-        existing = await db["transactions"].find_one({
-            "telegram_id": telegram_id,
-            "csv_import_id": doc["csv_import_id"],
-        })
-        if existing:
-            skipped_count += 1
-            continue
+    if not parsed:
+        return {"ok": True, "total": total, "new": 0, "skipped": 0, "errors": error_count}
 
-        # Also check if a matching monobank transaction exists
-        # (same date ±1 min, same amount, same description)
-        date_start = doc["date"].replace(second=0, microsecond=0)
-        date_end = date_start.replace(minute=date_start.minute + 1) if date_start.minute < 59 else date_start.replace(hour=date_start.hour + 1, minute=0)
-        mono_match = await db["transactions"].find_one({
+    # Bulk-prefetch duplicates to avoid N+1 round-trips.
+    csv_ids = [d["csv_import_id"] for d in parsed]
+    dates = [d["date"] for d in parsed]
+    min_d = min(dates).replace(second=0, microsecond=0)
+    max_d = max(dates).replace(second=0, microsecond=0) + timedelta(minutes=1)
+
+    existing_csv_ids: set[str] = set()
+    async for tx in db["transactions"].find(
+        {"telegram_id": telegram_id, "csv_import_id": {"$in": csv_ids}},
+        {"csv_import_id": 1},
+    ):
+        existing_csv_ids.add(tx["csv_import_id"])
+
+    mono_in_window: list[dict[str, Any]] = []
+    async for tx in db["transactions"].find(
+        {
             "telegram_id": telegram_id,
             "source": "monobank",
-            "amount": doc["amount"],
-            "type": doc["type"],
-            "date": {"$gte": date_start, "$lte": date_end},
-        })
-        if mono_match:
+            "date": {"$gte": min_d, "$lt": max_d},
+        },
+        {"amount": 1, "type": 1, "date": 1},
+    ):
+        mono_in_window.append(tx)
+
+    def _mono_dup(doc: dict[str, Any]) -> bool:
+        d0 = doc["date"].replace(second=0, microsecond=0)
+        d1 = d0 + timedelta(minutes=1)
+        for tx in mono_in_window:
+            if (
+                tx["amount"] == doc["amount"]
+                and tx["type"] == doc["type"]
+                and d0 <= tx["date"] < d1
+            ):
+                return True
+        return False
+
+    to_insert: list[dict[str, Any]] = []
+    for doc in parsed:
+        if doc["csv_import_id"] in existing_csv_ids:
             skipped_count += 1
             continue
+        if _mono_dup(doc):
+            skipped_count += 1
+            continue
+        to_insert.append(doc)
 
-        await db["transactions"].insert_one(doc)
-        new_count += 1
+    if to_insert:
+        await db["transactions"].insert_many(to_insert, ordered=False)
+        new_count = len(to_insert)
 
     return {
         "ok": True,

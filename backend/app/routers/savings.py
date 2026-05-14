@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from datetime import datetime, timezone
 
 from bson import ObjectId
@@ -9,6 +10,11 @@ from starlette.requests import Request
 from backend.app.deps import telegram_user_id
 from backend.app.limiter import limiter
 from backend.app.models.schemas import SavingsCreate, GoalCreate, GoalDeposit
+from backend.app.routers._common import (
+    KOPECKS_PER_UAH,
+    MONO_REFRESH_COOLDOWN_SEC,
+    track_bg_task,
+)
 from bot.db import queries
 from bot.db.mongo import get_db
 from bot.services import monobank
@@ -34,55 +40,59 @@ def _out(doc: dict) -> dict:
         "created_at": doc["created_at"].isoformat(),
     }
 
-async def _jit_refresh_mono(db: AsyncIOMotorDatabase, user: dict | None) -> dict | None:
-    if not user: return user
-    token = user.get("mono_token")
-    if not token: return user
-    
-    synced_at = user.get("mono_synced_at")
-    if synced_at:
-        if synced_at.tzinfo is None:
-            synced_at = synced_at.replace(tzinfo=timezone.utc)
-        if (datetime.now(timezone.utc) - synced_at).total_seconds() < 65:
-            return user
-
+async def _refresh_mono_bg(db: AsyncIOMotorDatabase, telegram_id: int, token: str) -> None:
     try:
         info = await monobank.get_client_info(token)
-        accounts_out = []
-        for acc in info.get("accounts", []):
-            accounts_out.append({
+        accounts_out = [
+            {
                 "id": acc.get("id"),
                 "type": acc.get("type"),
                 "currency_code": acc.get("currencyCode"),
-                "balance": (acc.get("balance") or 0) / 100.0,
-                "credit_limit": (acc.get("creditLimit") or 0) / 100.0,
+                "balance": (acc.get("balance") or 0) / KOPECKS_PER_UAH,
+                "credit_limit": (acc.get("creditLimit") or 0) / KOPECKS_PER_UAH,
                 "masked_pan": acc.get("maskedPan", []),
                 "iban": acc.get("iban"),
                 "cashback_type": acc.get("cashbackType"),
-            })
-
-        jars_out = []
-        for jar in info.get("jars", []):
-            jars_out.append({
+            }
+            for acc in info.get("accounts", [])
+        ]
+        jars_out = [
+            {
                 "id": jar.get("id"),
                 "title": jar.get("title", "Банка"),
                 "description": jar.get("description", ""),
                 "currency_code": jar.get("currencyCode"),
-                "balance": (jar.get("balance") or 0) / 100.0,
-                "goal": (jar.get("goal") or 0) / 100.0,
-            })
-            
+                "balance": (jar.get("balance") or 0) / KOPECKS_PER_UAH,
+                "goal": (jar.get("goal") or 0) / KOPECKS_PER_UAH,
+            }
+            for jar in info.get("jars", [])
+        ]
         await queries.set_mono_token(
-            db, user["telegram_id"], token,
+            db, telegram_id, token,
             client_id=info.get("clientId"),
             accounts=accounts_out,
             jars=jars_out,
         )
-        user = await queries.get_user(db, user["telegram_id"])
     except Exception as e:
-        _LOGGER.warning("Smart auto-sync failed: %s", e)
-        
-    return user
+        _LOGGER.warning("Background mono refresh failed: %s", e)
+
+
+def _schedule_mono_refresh(db: AsyncIOMotorDatabase, user: dict | None) -> None:
+    """Kick off a non-blocking mono refresh if the cache is stale."""
+    if not user:
+        return
+    token = user.get("mono_token")
+    if not token:
+        return
+
+    synced_at = user.get("mono_synced_at")
+    if synced_at:
+        if synced_at.tzinfo is None:
+            synced_at = synced_at.replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - synced_at).total_seconds() < MONO_REFRESH_COOLDOWN_SEC:
+            return
+
+    track_bg_task(asyncio.create_task(_refresh_mono_bg(db, user["telegram_id"], token)))
 
 
 
@@ -96,9 +106,9 @@ async def get_savings(
     total = await queries.savings_total(db, telegram_id)
     
     user = await queries.get_user(db, telegram_id)
-    user = await _jit_refresh_mono(db, user)
+    _schedule_mono_refresh(db, user)
     mono_jars = user.get("mono_jars", []) if user else []
-    
+
     mono_savings = []
     mono_total = 0.0
     for j in mono_jars:
@@ -167,7 +177,7 @@ async def get_goals(
 ) -> dict:
     rows = await queries.list_goals(db, telegram_id)
     user = await queries.get_user(db, telegram_id)
-    user = await _jit_refresh_mono(db, user)
+    _schedule_mono_refresh(db, user)
     mono_jars = user.get("mono_jars", []) if user else []
     
     items = [_goal_out(x) for x in rows]

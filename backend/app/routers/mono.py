@@ -14,6 +14,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from backend.app.deps import telegram_user_id
 from backend.app.limiter import limiter
 from backend.app.models.schemas import MonoConnectRequest, MonoSetDefaultAccount
+from backend.app.routers._common import (
+    KOPECKS_PER_UAH,
+    MONO_STATEMENT_MAX_SECONDS,
+    track_bg_task,
+)
+from backend.app.services.csrf import require_action_confirm
 from bot import config
 from bot.db import queries
 from bot.db.mongo import get_db
@@ -49,8 +55,8 @@ async def connect_monobank(
             "id": acc.get("id"),
             "type": acc.get("type"),
             "currency_code": acc.get("currencyCode"),
-            "balance": acc.get("balance", 0) / 100.0,
-            "credit_limit": acc.get("creditLimit", 0) / 100.0,
+            "balance": acc.get("balance", 0) / KOPECKS_PER_UAH,
+            "credit_limit": acc.get("creditLimit", 0) / KOPECKS_PER_UAH,
             "masked_pan": acc.get("maskedPan", []),
             "iban": acc.get("iban"),
             "cashback_type": acc.get("cashbackType"),
@@ -63,8 +69,8 @@ async def connect_monobank(
             "title": jar.get("title", "Банка"),
             "description": jar.get("description", ""),
             "currency_code": jar.get("currencyCode"),
-            "balance": (jar.get("balance") or 0) / 100.0,
-            "goal": (jar.get("goal") or 0) / 100.0,
+            "balance": (jar.get("balance") or 0) / KOPECKS_PER_UAH,
+            "goal": (jar.get("goal") or 0) / KOPECKS_PER_UAH,
         })
 
     await queries.set_mono_token(
@@ -96,7 +102,7 @@ async def connect_monobank(
             _LOGGER.error("Failed to auto-set mono webhook: %s", e)
             await queries.set_mono_webhook_status(db, telegram_id, False)
 
-    asyncio.create_task(_setup_webhook())
+    track_bg_task(asyncio.create_task(_setup_webhook()))
 
     return {
         "ok": True,
@@ -106,7 +112,7 @@ async def connect_monobank(
     }
 
 
-@router.post("/disconnect")
+@router.post("/disconnect", dependencies=[Depends(require_action_confirm)])
 @limiter.limit("5/minute")
 async def disconnect_monobank(
     request: Request, telegram_id: int = Depends(telegram_user_id),
@@ -136,8 +142,8 @@ async def get_accounts(
             "id": acc.get("id"),
             "type": acc.get("type"),
             "currency_code": acc.get("currencyCode"),
-            "balance": acc.get("balance", 0) / 100.0,
-            "credit_limit": acc.get("creditLimit", 0) / 100.0,
+            "balance": acc.get("balance", 0) / KOPECKS_PER_UAH,
+            "credit_limit": acc.get("creditLimit", 0) / KOPECKS_PER_UAH,
             "masked_pan": acc.get("maskedPan", []),
             "iban": acc.get("iban"),
             "cashback_type": acc.get("cashbackType"),
@@ -150,8 +156,8 @@ async def get_accounts(
             "title": jar.get("title", "Банка"),
             "description": jar.get("description", ""),
             "currency_code": jar.get("currencyCode"),
-            "balance": (jar.get("balance") or 0) / 100.0,
-            "goal": (jar.get("goal") or 0) / 100.0,
+            "balance": (jar.get("balance") or 0) / KOPECKS_PER_UAH,
+            "goal": (jar.get("goal") or 0) / KOPECKS_PER_UAH,
         })
 
     # Update cached accounts
@@ -191,7 +197,7 @@ async def sync_statement(
 
     token = user["mono_token"]
     now = int(time.time())
-    from_ts = now - 2682000  # 31 days + 1 hour
+    from_ts = now - MONO_STATEMENT_MAX_SECONDS
 
     accounts = user.get("mono_accounts", [])
     if not accounts:

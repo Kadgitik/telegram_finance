@@ -21,6 +21,8 @@ from backend.app.routers import mono, savings, stats, transactions, debts, categ
 from bot import config
 from bot.db.mongo import close_client, ensure_indexes, get_client, get_db
 from bot.dispatcher_factory import build_dispatcher
+from bot.services import monobank
+from bot.services.classifiers import CREDIT_RE
 
 _LOGGER = logging.getLogger(__name__)
 _ROOT = Path(__file__).resolve().parents[2]
@@ -34,17 +36,26 @@ async def lifespan(app: FastAPI):
     db = get_db()
     await ensure_indexes(db)
     
-    # Run migrations
+    # Run one-shot credit-category backfill (idempotent via meta flag).
     try:
-        import re
-        credit_re = re.compile(r"погашення кредит|кредит до зарплати|відсотки за|погашення заборгованості|кредит до завтра", re.IGNORECASE)
-        async for tx in db["transactions"].find({"category": {"$ne": "Кредит"}}):
-            desc = tx.get("description", "")
-            if credit_re.search(desc):
-                await db["transactions"].update_one(
-                    {"_id": tx["_id"]},
-                    {"$set": {"category": "Кредит", "internal_transfer": False}}
-                )
+        MIGRATION_NAME = "credit_category_backfill_v1"
+        meta = await db["meta"].find_one({"_id": MIGRATION_NAME})
+        if not meta:
+            updated = 0
+            async for tx in db["transactions"].find({"category": {"$ne": "Кредит"}}):
+                desc = tx.get("description", "")
+                if CREDIT_RE.search(desc):
+                    await db["transactions"].update_one(
+                        {"_id": tx["_id"]},
+                        {"$set": {"category": "Кредит", "internal_transfer": False}}
+                    )
+                    updated += 1
+            await db["meta"].insert_one({
+                "_id": MIGRATION_NAME,
+                "applied_at": __import__("datetime").datetime.utcnow(),
+                "updated": updated,
+            })
+            _LOGGER.info("Migration %s done, updated=%s", MIGRATION_NAME, updated)
     except Exception as e:
         _LOGGER.error("Migration failed: %s", e)
     bot = Bot(config.BOT_TOKEN)
@@ -71,6 +82,7 @@ async def lifespan(app: FastAPI):
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     finally:
+        await monobank.close_session()
         await close_client()
         await bot.session.close()
 
@@ -109,8 +121,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(transactions.router, prefix="/api")
