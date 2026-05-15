@@ -1,4 +1,5 @@
 import logging
+import os
 from cryptography.fernet import Fernet, InvalidToken
 
 _LOGGER = logging.getLogger(__name__)
@@ -7,6 +8,12 @@ class SecurityService:
     def __init__(self, key: str | None):
         self._fernet = None
         if not key:
+            env = os.environ.get("ENVIRONMENT", "").lower()
+            if env in ("production", "prod"):
+                raise RuntimeError(
+                    "ENCRYPTION_KEY обов'язковий у production. "
+                    "Згенеруйте ключ: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                )
             # Dev-режим без ключа: шифрування вимкнене, але голосно попереджаємо.
             _LOGGER.warning(
                 "ENCRYPTION_KEY не заданий — mono-токени зберігатимуться у plain text. "

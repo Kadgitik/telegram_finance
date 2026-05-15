@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from aiogram import Bot
@@ -52,7 +54,7 @@ async def lifespan(app: FastAPI):
                     updated += 1
             await db["meta"].insert_one({
                 "_id": MIGRATION_NAME,
-                "applied_at": __import__("datetime").datetime.utcnow(),
+                "applied_at": datetime.now(timezone.utc),
                 "updated": updated,
             })
             _LOGGER.info("Migration %s done, updated=%s", MIGRATION_NAME, updated)

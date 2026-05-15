@@ -49,13 +49,19 @@ async def upsert_user(
     )
 
 
-async def get_user(db: AsyncIOMotorDatabase, telegram_id: int) -> dict[str, Any] | None:
-    """Fetch user. The mono_token is decrypted here for backwards compat with
-    existing call-sites; new code should prefer `get_mono_token` to avoid
-    decrypting on every read.
+async def get_user(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    *,
+    decrypt_token: bool = True,
+) -> dict[str, Any] | None:
+    """Fetch user. The mono_token is decrypted by default for backwards compat.
+    Call-sites that only need to check `bool(user.get("mono_token"))` or read
+    cached accounts/jars should pass decrypt_token=False to skip the Fernet cost
+    on hot read paths. To use the actual token, prefer `get_mono_token`.
     """
     user = await db["users"].find_one({"telegram_id": telegram_id})
-    if user and user.get("mono_token"):
+    if user and decrypt_token and user.get("mono_token"):
         user["mono_token"] = security_service.decrypt_token(user["mono_token"])
     return user
 
@@ -87,9 +93,9 @@ async def set_mono_token(
         update["mono_client_id"] = client_id
     if accounts is not None:
         update["mono_accounts"] = accounts
-        update["mono_synced_at"] = datetime.now(timezone.utc)
     if jars is not None:
         update["mono_jars"] = jars
+    if accounts is not None or jars is not None:
         update["mono_synced_at"] = datetime.now(timezone.utc)
     await db["users"].update_one(
         {"telegram_id": telegram_id},
