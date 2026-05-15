@@ -47,6 +47,12 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     tx = db["transactions"]
     await tx.create_index([("telegram_id", 1), ("date", -1)])
     await tx.create_index([("telegram_id", 1), ("type", 1), ("date", -1)])
+    # Stats by-category & filtered list queries.
+    await tx.create_index(
+        [("telegram_id", 1), ("category", 1), ("date", -1)],
+        name="tx_by_user_category_date",
+    )
+    # Mono webhook lookup by mono_id is already covered by unique_mono_tx.
     try:
         await tx.create_index(
             [("telegram_id", 1), ("mono_id", 1)],

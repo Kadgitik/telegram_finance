@@ -325,7 +325,7 @@ async def mono_status(
     telegram_id: int = Depends(telegram_user_id),
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
-    user = await queries.get_user(db, telegram_id)
+    user = await queries.get_user(db, telegram_id, decrypt_token=False)
     if not user:
         return {"connected": False}
 

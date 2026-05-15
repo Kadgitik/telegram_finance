@@ -22,6 +22,9 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 _LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix="/import")
 
+_MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB
+_MAX_CSV_ROWS = 10_000
+
 
 def _db() -> AsyncIOMotorDatabase:
     return get_db()
@@ -219,9 +222,11 @@ async def import_csv(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(400, "Файл має бути у форматі CSV")
 
-    # Read file content
+    # Read file content (size-limited)
     try:
-        content_bytes = await file.read()
+        content_bytes = await file.read(_MAX_CSV_BYTES + 1)
+        if len(content_bytes) > _MAX_CSV_BYTES:
+            raise HTTPException(413, f"Файл завеликий (>{_MAX_CSV_BYTES // (1024*1024)} MB)")
         # Try different encodings
         for encoding in ("utf-8-sig", "utf-8", "cp1251", "windows-1251"):
             try:
@@ -248,6 +253,8 @@ async def import_csv(
 
     if not rows:
         raise HTTPException(400, "Не знайдено жодного рядка з даними")
+    if len(rows) > _MAX_CSV_ROWS:
+        raise HTTPException(413, f"Забагато рядків (>{_MAX_CSV_ROWS}). Розділіть файл.")
 
     new_count = 0
     skipped_count = 0

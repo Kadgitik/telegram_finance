@@ -84,8 +84,8 @@ async def balance(
 
     income, expense = await queries.balance_totals(db, telegram_id, start, end_excl)
 
-    # Get mono balance if connected
-    user = await queries.get_user(db, telegram_id)
+    # Get mono balance if connected (token itself not needed here)
+    user = await queries.get_user(db, telegram_id, decrypt_token=False)
     mono_balance = None
     if user and user.get("mono_accounts"):
         default_acc = user.get("default_account")
@@ -110,7 +110,8 @@ async def bootstrap(
     db: AsyncIOMotorDatabase = Depends(_db),
     month: str | None = None,
 ) -> dict[str, Any]:
-    user = await queries.get_user(db, telegram_id) or {}
+    # Bootstrap is the hottest path; we only need cached fields, not the token.
+    user = await queries.get_user(db, telegram_id, decrypt_token=False) or {}
 
     month_param: str
     if not month or str(month).lower() == "auto":
