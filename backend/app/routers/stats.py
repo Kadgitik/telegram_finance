@@ -12,6 +12,7 @@ from backend.app.limiter import limiter
 
 from backend.app.deps import telegram_user_id
 from backend.app.routers._common import tx_out as _tx_out
+from backend.app.services.budgets import compute_budget_metrics
 from backend.app.services.csrf import require_action_confirm
 from backend.app.services.export_tokens import issue_export_token, verify_and_consume_export_token
 from backend.app.services.periods import (
@@ -208,6 +209,15 @@ async def bootstrap(
 
     mono_connected = bool(user.get("mono_token"))
 
+    budgets = user.get("budgets") or {}
+    metrics = compute_budget_metrics(
+        spent=expense,
+        budgets=budgets,
+        start=start,
+        end_excl=end_excl,
+        now=datetime.now(timezone.utc),
+    )
+
     return {
         "month": month_key,
         "balance": balance_data,
@@ -217,6 +227,8 @@ async def bootstrap(
         "savings_total": sav_total,
         "mono_connected": mono_connected,
         "custom_categories": user.get("custom_categories", []),
+        "budgets": budgets,
+        **metrics,
     }
 
 
