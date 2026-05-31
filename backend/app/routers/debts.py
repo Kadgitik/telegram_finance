@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException

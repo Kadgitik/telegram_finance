@@ -1,7 +1,5 @@
 """Monobank API integration endpoints."""
 
-from __future__ import annotations
-
 import asyncio
 import hmac
 import logging

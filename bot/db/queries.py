@@ -42,6 +42,7 @@ async def upsert_user(
                 "mono_webhook_set": False,
                 "default_account": None,
                 "custom_categories": [],
+                "budgets": {},
                 "created_at": now,
             },
         },
@@ -166,9 +167,23 @@ async def delete_custom_category(
 ) -> bool:
     r = await db["users"].update_one(
         {"telegram_id": telegram_id},
-        {"$pull": {"custom_categories": {"key": key}}}
+        {
+            "$pull": {"custom_categories": {"key": key}},
+            "$unset": {f"budgets.{key}": ""},
+        },
     )
     return r.modified_count > 0
+
+
+async def set_budgets(
+    db: AsyncIOMotorDatabase,
+    telegram_id: int,
+    budgets: dict[str, float],
+) -> None:
+    await db["users"].update_one(
+        {"telegram_id": telegram_id},
+        {"$set": {"budgets": budgets, "updated_at": datetime.now(timezone.utc)}},
+    )
 
 
 # ── Transactions ───────────────────────────────────────────────────────

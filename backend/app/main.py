@@ -19,7 +19,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from backend.app.limiter import limiter
 
-from backend.app.routers import mono, savings, stats, transactions, debts, categories, import_csv
+from backend.app.routers import mono, savings, stats, transactions, debts, categories, import_csv, budgets
 from bot import config
 from bot.db.mongo import close_client, ensure_indexes, get_client, get_db
 from bot.dispatcher_factory import build_dispatcher
@@ -134,6 +134,7 @@ app.include_router(mono.router, prefix="/api")
 app.include_router(debts.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(import_csv.router, prefix="/api")
+app.include_router(budgets.router, prefix="/api")
 
 
 @app.get("/health")

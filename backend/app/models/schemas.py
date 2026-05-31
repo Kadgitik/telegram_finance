@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import math
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TransactionCreate(BaseModel):
@@ -62,3 +63,25 @@ class DebtCreate(BaseModel):
     comment: str = ""
     original_amount: float | None = None
     original_currency: str | None = None
+
+
+class BudgetUpdate(BaseModel):
+    budgets: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator("budgets")
+    @classmethod
+    def _validate_budgets(cls, v: dict[str, float]) -> dict[str, float]:
+        if len(v) > 100:
+            raise ValueError("Забагато категорій (макс. 100)")
+        out: dict[str, float] = {}
+        for key, amount in v.items():
+            k = str(key).strip()
+            if not k or len(k) > 50:
+                raise ValueError("Некоректний ключ категорії")
+            a = float(amount)
+            if not math.isfinite(a) or a < 0:  # reject NaN/Infinity/negative
+                raise ValueError("Ліміт має бути >= 0")
+            if a == 0:
+                continue  # 0 == «без ліміту», не зберігаємо
+            out[k] = a
+        return out

@@ -11,6 +11,7 @@ import HomePage from "./pages/HomePage";
 import SavingsPage from "./pages/SavingsPage";
 import SettingsPage from "./pages/SettingsPage";
 import StatsPage from "./pages/StatsPage";
+import BudgetsPage from "./pages/BudgetsPage";
 import DebtsPage from "./pages/DebtsPage";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 function AppRoutes() {
@@ -70,6 +71,7 @@ function AppRoutes() {
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/savings" element={<SavingsPage />} />
         <Route path="/debts" element={<DebtsPage />} />
+        <Route path="/budgets" element={<BudgetsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
       {!hideNav && <BottomNav />}
