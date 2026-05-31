@@ -23,6 +23,11 @@ def test_negative_amount_rejected():
         BudgetUpdate(budgets={"Їжа": -10})
 
 
+def test_infinity_rejected():
+    with pytest.raises(ValidationError):
+        BudgetUpdate(budgets={"Їжа": float("inf")})
+
+
 def test_too_many_categories_rejected():
     big = {f"cat{i}": 1 for i in range(101)}
     with pytest.raises(ValidationError):

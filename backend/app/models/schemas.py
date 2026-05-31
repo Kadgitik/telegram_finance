@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -77,10 +78,8 @@ class BudgetUpdate(BaseModel):
             k = str(key).strip()
             if not k or len(k) > 50:
                 raise ValueError("Некоректний ключ категорії")
-            if amount is None:
-                continue
             a = float(amount)
-            if a != a or a < 0:  # NaN or negative
+            if not math.isfinite(a) or a < 0:  # reject NaN/Infinity/negative
                 raise ValueError("Ліміт має бути >= 0")
             if a == 0:
                 continue  # 0 == «без ліміту», не зберігаємо
