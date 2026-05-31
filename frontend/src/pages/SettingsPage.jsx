@@ -1,5 +1,6 @@
-import { CheckCircle, ChevronDown, ChevronUp, Download, ExternalLink, FileUp, Link2Off, RefreshCw, Upload, XCircle } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronUp, Download, ExternalLink, FileUp, Link2Off, RefreshCw, Upload, Wallet, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useHaptic } from "../hooks/useHaptic";
 import { useTelegram } from "../hooks/useTelegram";
@@ -136,6 +137,20 @@ export default function SettingsPage() {
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto space-y-5">
       <h1 className="text-xl font-bold">Налаштування</h1>
+
+      <Link
+        to="/budgets"
+        onClick={() => h.light()}
+        className="flex items-center gap-3 bg-[#1C1C1E] p-4 rounded-2xl mb-4 active:bg-[#2a2a30] transition-colors"
+      >
+        <div className="w-10 h-10 rounded-full bg-[#10b981]/15 flex items-center justify-center">
+          <Wallet size={18} className="text-[#34d399]" />
+        </div>
+        <div className="flex-1">
+          <p className="text-[15px] font-semibold text-white/90">Бюджети</p>
+          <p className="text-[12px] text-white/40">Ліміти на категорії</p>
+        </div>
+      </Link>
 
       {/* ─── Monobank connection status ─── */}
       <div className="rounded-[24px] bg-[var(--app-card)] p-5">

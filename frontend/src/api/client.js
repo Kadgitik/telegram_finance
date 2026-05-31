@@ -90,6 +90,7 @@ const INVALIDATIONS = [
   { match: /^\/goals/,        prefixes: ["/goals", "/savings"] },
   { match: /^\/debts/,        prefixes: ["/debts"] },
   { match: /^\/categories/,   prefixes: ["/categories", "/bootstrap"] },
+  { match: /^\/budgets/,     prefixes: ["/budgets", "/bootstrap"] },
   { match: /^\/mono/,         prefixes: ["/mono", "/savings", "/balance", "/bootstrap"] },
   { match: /^\/import/,       prefixes: ["/transactions", "/balance", "/bootstrap", "/stats", "/stats/trend"] },
   { match: /^\/me\//,         prefixes: ["/transactions", "/balance", "/bootstrap", "/stats", "/stats/trend"] },
