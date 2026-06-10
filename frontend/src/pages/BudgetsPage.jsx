@@ -48,7 +48,7 @@ export default function BudgetsPage() {
   );
 
   const setAmount = (key, val) =>
-    setAmounts((prev) => ({ ...prev, [key]: val.replace(/[^\d.]/g, "") }));
+    setAmounts((prev) => ({ ...prev, [key]: val.replace(",", ".").replace(/[^\d.]/g, "") }));
 
   const handleSave = async () => {
     if (!initData || saving) return;
@@ -104,8 +104,8 @@ export default function BudgetsPage() {
                 </div>
                 <span className="flex-1 text-[15px] font-medium text-white/90 truncate">{key}</span>
                 <input
-                  type="number"
-                  inputMode="numeric"
+                  type="text"
+                  inputMode="decimal"
                   className="w-24 text-right rounded-xl px-3 py-2 bg-black/40 border border-white/10 text-[15px] focus:border-[#10b981]/60 outline-none"
                   placeholder="0"
                   value={amounts[key] ?? ""}

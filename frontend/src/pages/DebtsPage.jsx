@@ -42,7 +42,7 @@ export default function DebtsPage() {
   }, [initData]);
 
   const handleAddDebt = async () => {
-    let val = parseFloat(debtAmount);
+    let val = parseFloat(String(debtAmount).replace(",", "."));
     if (!initData || !val || val <= 0 || !debtContact) return;
     
     let originalAmount = undefined;
@@ -216,7 +216,7 @@ export default function DebtsPage() {
                    </button>
                 </div>
                 <input
-                    type="number"
+                    type="text" inputMode="decimal"
                     className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#6366f1]/50 outline-none transition-colors"
                     placeholder="Сума боргу (напр. 500)"
                     value={debtAmount}

@@ -74,7 +74,7 @@ export default function SavingsPage() {
 
   // Free savings handlers
   const handleAddSaving = async () => {
-    let val = parseFloat(savingAmount);
+    let val = parseFloat(String(savingAmount).replace(",", "."));
     if (!initData || !val || val === 0) return;
     
     if (savingAction === "withdraw") {
@@ -127,7 +127,7 @@ export default function SavingsPage() {
 
   // Goal handlers
   const handleCreateGoal = async () => {
-    const val = parseFloat(goalTarget);
+    const val = parseFloat(String(goalTarget).replace(",", "."));
     if (!initData || !val || val <= 0 || !goalName) return;
     setSavingGoal(true);
     h.light();
@@ -158,7 +158,7 @@ export default function SavingsPage() {
   };
 
   const handleDeposit = async (action = "deposit") => {
-    let val = parseFloat(depositAmount);
+    let val = parseFloat(String(depositAmount).replace(",", "."));
     if (!initData || !val || val === 0 || !activeGoal) return;
     
     if (action === "withdraw") {
@@ -309,7 +309,7 @@ export default function SavingsPage() {
                        </button>
                     </div>
                     <input
-                      type="number"
+                      type="text" inputMode="decimal"
                       className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
                       placeholder="Сума (наприклад: 1000)"
                       value={savingAmount}
@@ -437,7 +437,7 @@ export default function SavingsPage() {
                       onChange={(e) => setGoalName(e.target.value)}
                     />
                     <input
-                      type="number"
+                      type="text" inputMode="decimal"
                       className="w-full rounded-[16px] px-4 py-3 bg-black/40 border border-white/5 text-[15px] placeholder:text-white/30 focus:border-[#10b981]/50 outline-none transition-colors"
                       placeholder="Мета (наприклад: 50000)"
                       value={goalTarget}
@@ -531,7 +531,7 @@ export default function SavingsPage() {
                           className="flex gap-2"
                         >
                            <input
-                             type="number"
+                             type="text" inputMode="decimal"
                              className={`flex-1 rounded-[16px] px-3 py-2 bg-black/40 border text-[14px] outline-none transition-colors ${activeGoalAction === "withdraw" ? "border-red-500/30 focus:border-red-500/70" : "border-[#10b981]/30 focus:border-[#10b981]/70"}`}
                              placeholder={activeGoalAction === "withdraw" ? "Сума зняття" : "Сума поповнення"}
                              value={depositAmount}
