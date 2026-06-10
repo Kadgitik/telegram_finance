@@ -485,7 +485,7 @@ export default function SavingsPage() {
                       )}
                     </AnimatePresence>
 
-                  </motion.div>
+                  </div>
                 );
               })}
               
