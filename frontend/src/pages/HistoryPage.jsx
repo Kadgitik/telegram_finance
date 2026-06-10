@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Search } from "lucide-react";
+import { Search, ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import MonthSwitcher from "../components/MonthSwitcher";
 import TransactionDetailsModal from "../components/TransactionDetailsModal";
@@ -13,6 +13,7 @@ import { getCategoryConfig } from "../utils/constants";
 import { useCustomCategories } from "../context/CustomCategoriesContext";
 
 export default function HistoryPage() {
+  const nav = useNavigate();
   const { initData } = useTelegram();
   const h = useHaptic();
   const [items, setItems] = useState([]);
@@ -84,19 +85,27 @@ export default function HistoryPage() {
   const days = Object.keys(grouped).sort().reverse();
 
   return (
-    <div className="min-h-screen bg-black text-white relative flex flex-col font-sans overflow-x-hidden pb-24">
+    <div className="min-h-screen bg-[#020203] text-white relative flex flex-col font-sans overflow-x-hidden pb-24">
       {/* TOP GRADIENT BG */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.8 }}
         transition={{ duration: 1.5 }}
         className="absolute top-0 left-0 w-full h-[50vh] pointer-events-none"
-        style={{ background: "linear-gradient(180deg, #1d4ed8 0%, #3b82f6 30%, #000000 100%)" }}
+        style={{ background: "linear-gradient(180deg, rgba(30,58,138,0.2) 0%, rgba(30,58,138,0.05) 40%, rgba(2,2,3,0) 100%)" }}
       />
       
       <div className="relative z-10 px-4 pt-4 max-w-lg mx-auto w-full">
-        <div className="flex items-center justify-between mb-3 text-white">
-          <h1 className="text-2xl font-bold tracking-tight">Історія</h1>
+        <div className="flex items-center justify-between mb-4 text-white">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => nav(-1)}
+              className="w-10 h-10 rounded-full bg-white/[0.04] border border-white/[0.04] flex items-center justify-center active:bg-white/10 transition-colors"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <h1 className="text-2xl font-bold tracking-tight">Історія</h1>
+          </div>
           <button
             type="button"
             onClick={() => setShowSearch(!showSearch)}
