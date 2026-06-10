@@ -85,22 +85,18 @@ export default function HistoryPage() {
   const days = Object.keys(grouped).sort().reverse();
 
   return (
-    <div className="min-h-screen bg-[#020203] text-white relative flex flex-col font-sans overflow-x-hidden pb-24">
-      {/* TOP GRADIENT BG */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.8 }}
-        transition={{ duration: 1.5 }}
-        className="absolute top-0 left-0 w-full h-[50vh] pointer-events-none"
-        style={{ background: "linear-gradient(180deg, rgba(30,58,138,0.2) 0%, rgba(30,58,138,0.05) 40%, rgba(2,2,3,0) 100%)" }}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 text-white relative flex flex-col font-sans overflow-x-hidden pb-24">
+      {/* Ambient background glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50vh] h-[50vh] bg-emerald-500 rounded-full blur-[120px] pointer-events-none opacity-40" />
+      <div className="absolute top-[30%] right-[-20%] w-[60vh] h-[60vh] bg-indigo-600 rounded-full blur-[140px] pointer-events-none opacity-30" />
+      <div className="absolute bottom-[20%] left-[10%] w-[40vh] h-[40vh] bg-purple-600 rounded-full blur-[100px] pointer-events-none opacity-30" />
       
       <div className="relative z-10 px-4 pt-4 max-w-lg mx-auto w-full">
         <div className="flex items-center justify-between mb-4 text-white">
           <div className="flex items-center gap-3">
             <button
               onClick={() => nav(-1)}
-              className="w-10 h-10 rounded-full bg-white/[0.04] border border-white/[0.04] flex items-center justify-center active:bg-white/10 transition-colors"
+              className="w-10 h-10 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center active:bg-white/10 transition-colors shadow-lg"
             >
               <ArrowLeft size={18} />
             </button>

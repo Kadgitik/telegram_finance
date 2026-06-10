@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Settings, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Settings, Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
@@ -74,17 +74,22 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#020203] text-[#EDEDEF] font-sans overflow-x-hidden pb-28 relative">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 text-[#EDEDEF] font-sans overflow-x-hidden pb-28 relative">
       {/* Ambient background glows */}
       <motion.div
-        animate={{ opacity: [0.1, 0.15, 0.1], scale: [1, 1.05, 1] }}
+        animate={{ opacity: [0.3, 0.5, 0.3], scale: [1, 1.1, 1] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-[-10%] left-[-10%] w-[50vh] h-[50vh] bg-[#34d399] rounded-full blur-[100px] pointer-events-none opacity-10"
+        className="absolute top-[-10%] left-[-10%] w-[50vh] h-[50vh] bg-emerald-500 rounded-full blur-[120px] pointer-events-none opacity-40"
       />
       <motion.div
-        animate={{ opacity: [0.08, 0.12, 0.08], scale: [1, 1.1, 1] }}
+        animate={{ opacity: [0.2, 0.4, 0.2], scale: [1, 1.2, 1] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="absolute top-[20%] right-[-20%] w-[60vh] h-[60vh] bg-[#5E6AD2] rounded-full blur-[120px] pointer-events-none opacity-[0.08]"
+        className="absolute top-[20%] right-[-20%] w-[60vh] h-[60vh] bg-indigo-600 rounded-full blur-[140px] pointer-events-none opacity-30"
+      />
+      <motion.div
+        animate={{ opacity: [0.2, 0.3, 0.2], scale: [1, 1.05, 1] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute bottom-[10%] left-[20%] w-[40vh] h-[40vh] bg-purple-600 rounded-full blur-[100px] pointer-events-none opacity-30"
       />
       
       <div className="px-5 pt-4 relative z-10">
@@ -118,16 +123,15 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="rounded-[28px] p-6 mb-5 relative overflow-hidden bg-gradient-to-br from-[#0a0a0f] to-[#020203] border border-white/[0.08] shadow-2xl"
+          className="rounded-[28px] p-6 mb-5 relative overflow-hidden bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]"
         >
-          {/* Subtle inner glow */}
           <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
           <p className="text-xs uppercase tracking-widest text-white/40 mb-1">
             Залишок · {balance.period_label || ""}
           </p>
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
             <h2 className="text-[44px] font-extrabold tracking-tighter leading-none">{balanceValue}</h2>
-            <span className="text-xl font-medium text-white/35">₴</span>
+            <span className="text-xl font-medium text-white/50">₴</span>
           </div>
           {usdRate ? (
             <p className="text-[#34d399] text-sm font-medium mt-1">
@@ -165,7 +169,7 @@ export default function HomePage() {
                 key={q.to}
                 to={q.to}
                 onClick={() => h.light()}
-                className="flex-1 rounded-[20px] bg-[#0a0a0c]/80 backdrop-blur-xl border border-white/[0.04] py-3.5 flex flex-col items-center gap-2 active:bg-[#121215] transition-all active:scale-[0.98]"
+                className="flex-1 rounded-[20px] bg-white/5 backdrop-blur-xl border border-white/10 py-3.5 flex flex-col items-center gap-2 active:bg-white/10 transition-all active:scale-[0.98] shadow-lg"
               >
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center relative overflow-hidden"
@@ -182,14 +186,22 @@ export default function HomePage() {
         {/* Metric cards */}
         <div className="flex gap-3 mb-7">
           {/* Темп витрат */}
-          <div className="flex-1 rounded-[24px] bg-[#0a0a0c]/80 backdrop-blur-xl border border-white/[0.04] p-4 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <div className="flex-1 rounded-[24px] bg-white/5 backdrop-blur-xl border border-white/10 p-4 relative overflow-hidden shadow-lg">
+            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
             <div className="flex items-center justify-between mb-1">
               <p className="text-[11px] uppercase tracking-wide text-white/40">Темп витрат</p>
               {badge.show && (
-                <span className="text-[11px] font-bold" style={{ color: badge.color }}>
-                  {badge.up ? "↗" : "↘"} {badge.text}
-                </span>
+                <div 
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md border shadow-sm"
+                  style={{ 
+                    backgroundColor: `${badge.color}15`, 
+                    color: badge.color,
+                    borderColor: `${badge.color}30`
+                  }}
+                >
+                  {badge.up ? <TrendingUp size={12} strokeWidth={3} /> : <TrendingDown size={12} strokeWidth={3} />}
+                  <span>{badge.text}</span>
+                </div>
               )}
             </div>
             <p className="text-[22px] font-extrabold tracking-tight">
@@ -202,8 +214,8 @@ export default function HomePage() {
           </div>
 
           {/* Можна витрати */}
-          <div className="flex-1 rounded-[24px] bg-[#0a0a0c]/80 backdrop-blur-xl border border-white/[0.04] p-4 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <div className="flex-1 rounded-[24px] bg-white/5 backdrop-blur-xl border border-white/10 p-4 relative overflow-hidden shadow-lg">
+            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
             <p className="text-[11px] uppercase tracking-wide text-white/40 mb-1">
               Можна витрати
             </p>
@@ -239,9 +251,9 @@ export default function HomePage() {
               <div
                 key={c.name}
                 onClick={() => { h.light(); nav("/history?search=" + encodeURIComponent(c.name)); }}
-                className="bg-[#0a0a0c]/80 backdrop-blur-xl border border-white/[0.04] p-4 rounded-[24px] active:bg-[#121215] transition-all active:scale-[0.98] cursor-pointer relative overflow-hidden"
+                className="bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-[24px] active:bg-white/10 transition-all active:scale-[0.98] cursor-pointer relative overflow-hidden shadow-lg"
               >
-                <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+                <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                 <div className="flex items-center gap-3 mb-2">
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"

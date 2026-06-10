@@ -17,7 +17,7 @@ import TransactionDetailsModal from "../components/TransactionDetailsModal";
 import { useFxRate } from "../hooks/useFxRate";
 import { useTelegram } from "../hooks/useTelegram";
 import { useStoredMonth } from "../context/MonthContext";
-import { Calendar } from "lucide-react";
+import { Calendar, ArrowLeft } from "lucide-react";
 import { formatMoney, formatUsdApprox } from "../utils/formatters";
 import { ACCENT, getCategoryConfig } from "../utils/constants";
 import { useCustomCategories } from "../context/CustomCategoriesContext";
@@ -39,6 +39,7 @@ Tooltip.positioners.outside = function(items) {
 };
 
 export default function StatsPage() {
+  const nav = useNavigate();
   const { initData } = useTelegram();
   const [stats, setStats] = useState(null);
   const [trend, setTrend] = useState(null);
@@ -130,20 +131,24 @@ export default function StatsPage() {
   const barVals = trend?.points?.map((p) => p.amount) || [];
 
   return (
-    <div className="min-h-screen bg-black text-white relative flex flex-col font-sans overflow-x-hidden pb-24">
-      {/* TOP GRADIENT BG */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.8 }}
-        transition={{ duration: 1.5 }}
-        className="absolute top-0 left-0 w-full h-[50vh] pointer-events-none"
-        style={{ background: "linear-gradient(180deg, #be185d 0%, #db2777 30%, #000000 100%)" }}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 text-white relative flex flex-col font-sans overflow-x-hidden pb-24">
+      {/* Ambient background glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50vh] h-[50vh] bg-emerald-500 rounded-full blur-[120px] pointer-events-none opacity-40" />
+      <div className="absolute top-[30%] right-[-20%] w-[60vh] h-[60vh] bg-indigo-600 rounded-full blur-[140px] pointer-events-none opacity-30" />
+      <div className="absolute bottom-[20%] left-[10%] w-[40vh] h-[40vh] bg-purple-600 rounded-full blur-[100px] pointer-events-none opacity-30" />
       
       <div className="relative z-10 px-5 pt-8 space-y-6">
         <div className="mb-2">
-          <h1 className="text-[32px] font-extrabold tracking-tight text-white leading-tight mb-1">Статистика</h1>
-          <button onClick={() => setShowPicker(true)} className="flex items-center gap-2 text-[17px] font-medium text-white/80 active:opacity-70 transition-opacity">
+          <div className="flex items-center gap-3 mb-1">
+            <button
+              onClick={() => nav(-1)}
+              className="w-10 h-10 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center active:bg-white/10 transition-colors shadow-lg"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <h1 className="text-[32px] font-extrabold tracking-tight text-white leading-tight">Статистика</h1>
+          </div>
+          <button onClick={() => setShowPicker(true)} className="flex items-center gap-2 text-[17px] font-medium text-white/80 active:opacity-70 transition-opacity mt-2">
             {stats ? stats.period_label : "Завантаження..."}
             <div className="bg-white/10 p-1.5 rounded-full flex items-center justify-center text-white/80">
                 <Calendar size={18} />
@@ -154,9 +159,9 @@ export default function StatsPage() {
         {stats && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl"
+            className="rounded-[32px] bg-white/5 backdrop-blur-xl border border-white/10 p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]"
           >
-            <p className="font-semibold text-white/50 mb-1">Витрати за місяць</p>
+            <p className="font-semibold text-white/70 mb-1">Витрати за місяць</p>
           <div className="flex items-baseline gap-1">
             <h2 className="text-4xl font-extrabold tracking-tighter">
               {formatMoney(stats.total).replace(" ₴", "")}
@@ -172,9 +177,9 @@ export default function StatsPage() {
       {cats.length > 0 && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 20 }}
-          className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl"
+          className="rounded-[32px] bg-white/5 backdrop-blur-xl border border-white/10 p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]"
         >
-          <p className="font-semibold text-white/50 mb-4">Розподіл витрат</p>
+          <p className="font-semibold text-white/70 mb-4">Розподіл витрат</p>
           <div className="relative w-full h-64 mx-auto mb-6">
             <Doughnut
               data={doughnutData}
@@ -248,9 +253,9 @@ export default function StatsPage() {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden bg-black/10 rounded-lg mt-1"
+                        className="overflow-hidden bg-black/20 rounded-lg mt-1"
                       >
-                        <div className="p-3 space-y-2 mt-1 mx-2 bg-[#212124] rounded-[20px]">
+                        <div className="p-3 space-y-2 mt-1 mx-2 bg-black/40 rounded-[20px]">
                           {loadingCat ? (
                             <p className="text-xs text-center text-[var(--app-hint)] py-2">Завантаження...</p>
                           ) : catTx.length > 0 ? (
@@ -292,9 +297,9 @@ export default function StatsPage() {
       {trend && trend.points?.length > 0 && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 20 }}
-          className="rounded-[32px] bg-[#1C1C1E]/80 backdrop-blur-xl border border-white/5 p-6 shadow-2xl mb-6"
+          className="rounded-[32px] bg-white/5 backdrop-blur-xl border border-white/10 p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] mb-6"
         >
-          <p className="font-semibold text-white/50 mb-4">Витрати по днях</p>
+          <p className="font-semibold text-white/70 mb-4">Витрати по днях</p>
           <div className="h-48 w-full">
             <Line
               data={{
