@@ -46,6 +46,7 @@ def pipeline_stats_expense_by_category(
             "$match": {
                 "telegram_id": telegram_id,
                 "type": "expense",
+                "category": {"$ne": "Накопичення"},
                 "date": bound,
                 "internal_transfer": {"$ne": True},
                 "deleted": {"$ne": True},
@@ -70,6 +71,7 @@ def pipeline_daily_expense_totals(
             "$match": {
                 "telegram_id": telegram_id,
                 "type": "expense",
+                "category": {"$ne": "Накопичення"},
                 "date": bound,
                 "internal_transfer": {"$ne": True},
                 "deleted": {"$ne": True},

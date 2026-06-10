@@ -210,8 +210,9 @@ async def bootstrap(
     mono_connected = bool(user.get("mono_token"))
 
     budgets = user.get("budgets") or {}
+    spent_for_budget = sum(float(r["total"]) for r in stats_rows)
     metrics = compute_budget_metrics(
-        spent=expense,
+        spent=spent_for_budget,
         budgets=budgets,
         start=start,
         end_excl=end_excl,
