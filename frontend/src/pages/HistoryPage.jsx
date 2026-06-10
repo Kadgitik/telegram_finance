@@ -20,8 +20,8 @@ export default function HistoryPage() {
   const [month, setStoredMonth] = useStoredMonth();
   const [searchParams] = useSearchParams();
   const [filter, setFilter] = useState(searchParams.get("filter") || "all");
-  const [search, setSearch] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [showSearch, setShowSearch] = useState(!!searchParams.get("search"));
   const [offset, setOffset] = useState(0);
   const [editingTx, setEditingTx] = useState(null);
   const [customCategories] = useCustomCategories();

@@ -223,7 +223,7 @@ export default function HomePage() {
             return (
               <div
                 key={c.name}
-                onClick={() => { h.light(); nav("/budgets"); }}
+                onClick={() => { h.light(); nav("/history?search=" + encodeURIComponent(c.name)); }}
                 className="bg-[#1C1C1E] p-3.5 rounded-2xl active:bg-[#2a2a30] transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3 mb-2">
@@ -247,7 +247,7 @@ export default function HomePage() {
                     />
                   </div>
                   <span className="text-[11px] font-medium text-white/35 shrink-0 w-24 text-right">
-                    {prog.hasLimit ? `${prog.pct}% від ліміту` : "встанови ліміт"}
+                    {prog.hasLimit ? `${prog.pct}% від ліміту` : ""}
                   </span>
                 </div>
               </div>
