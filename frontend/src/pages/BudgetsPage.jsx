@@ -87,7 +87,7 @@ export default function BudgetsPage() {
         </div>
 
         <p className="text-sm text-white/40 mb-5">
-          Задай ліміт на категорію. Сума всіх лімітів — твій загальний бюджет на місяць.
+          Задай ліміт на категорію, щоб контролювати витрати. Твій загальний бюджет на місяць завжди дорівнює твоєму Залишку.
         </p>
 
         <div className="space-y-2.5">
@@ -127,7 +127,7 @@ export default function BudgetsPage() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-[#121214]/90 backdrop-blur-xl border-t border-white/10 px-5 py-4 safe-pb">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-white/50">Загальний бюджет</span>
+          <span className="text-sm text-white/50">Сума лімітів</span>
           <span className="text-lg font-bold">{formatMoney(total)}</span>
         </div>
         <button

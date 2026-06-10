@@ -58,13 +58,14 @@ export default function HomePage() {
   const budgets = boot?.budgets || {};
   const totalBudget = boot?.total_budget || 0;
   const spent = balance.expense || 0;
+  const budget_spent = boot?.budget_spent || 0;
   const cats = [...(boot?.stats?.categories || [])].sort((a, b) => b.amount - a.amount);
   const trendValues = (boot?.trend?.points || []).map((p) => p.amount);
 
   const balanceValue = formatMoney(balance.balance || 0).replace(" ₴", "");
   const badge = paceBadge(boot?.pace_vs_budget_pct ?? null);
   const cs = canSpendState(boot?.can_spend ?? 0);
-  const spentPct = totalBudget > 0 ? Math.min(100, (spent / totalBudget) * 100) : 0;
+  const spentPct = totalBudget > 0 ? Math.min(100, (budget_spent / totalBudget) * 100) : 0;
 
   const QUICK = [
     { to: "/add?type=income", label: "Дохід", icon: ArrowUpRight, color: "#34C759" },
@@ -136,7 +137,7 @@ export default function HomePage() {
             <div className="mt-4 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full"
-                style={{ width: `${spentPct}%`, background: spent > totalBudget ? "#FF453A" : "#34d399" }}
+                style={{ width: `${spentPct}%`, background: budget_spent > totalBudget ? "#FF453A" : "#34d399" }}
               />
             </div>
           )}
