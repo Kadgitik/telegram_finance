@@ -60,6 +60,28 @@ async def lifespan(app: FastAPI):
             _LOGGER.info("Migration %s done, updated=%s", MIGRATION_NAME, updated)
     except Exception as e:
         _LOGGER.error("Migration failed: %s", e)
+
+    # Backfill `date` field for transactions that were created before the "Custom Transaction Dates" feature
+    try:
+        MIGRATION_DATE = "date_field_backfill_v1"
+        meta = await db["meta"].find_one({"_id": MIGRATION_DATE})
+        if not meta:
+            updated = 0
+            async for tx in db["transactions"].find({"date": {"$exists": False}}):
+                if "created_at" in tx:
+                    await db["transactions"].update_one(
+                        {"_id": tx["_id"]},
+                        {"$set": {"date": tx["created_at"]}}
+                    )
+                    updated += 1
+            await db["meta"].insert_one({
+                "_id": MIGRATION_DATE,
+                "applied_at": datetime.now(timezone.utc),
+                "updated": updated,
+            })
+            _LOGGER.info("Migration %s done, updated=%s", MIGRATION_DATE, updated)
+    except Exception as e:
+        _LOGGER.error("Migration %s failed: %s", "date_field_backfill_v1", e)
     bot = Bot(config.BOT_TOKEN)
     dp = build_dispatcher()
     app.state.bot = bot
