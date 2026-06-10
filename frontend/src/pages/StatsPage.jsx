@@ -11,6 +11,7 @@ import {
 } from "chart.js";
 import { useEffect, useState } from "react";
 import { Line, Doughnut } from "react-chartjs-2";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import PeriodPickerModal from "../components/PeriodPickerModal";
 import TransactionDetailsModal from "../components/TransactionDetailsModal";
