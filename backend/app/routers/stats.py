@@ -217,6 +217,7 @@ async def bootstrap(
         start=start,
         end_excl=end_excl,
         now=datetime.now(timezone.utc),
+        balance=balance_data["balance"],
     )
 
     return {

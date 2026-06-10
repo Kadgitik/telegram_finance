@@ -12,6 +12,7 @@ def compute_budget_metrics(
     start: datetime,
     end_excl: datetime,
     now: datetime,
+    balance: float = 0.0,
 ) -> dict[str, Any]:
     """Повертає метрики для карток «Темп витрат» та «Можна витрати».
 
@@ -19,11 +20,17 @@ def compute_budget_metrics(
     budgets     — map {категорія: ліміт}.
     start/end   — межі фінансового місяця [start, end_excl).
     now         — поточний момент (UTC).
+    balance     — поточний залишок.
     """
     budgets = budgets or {}
     total_budget = float(
         sum(v for v in budgets.values() if isinstance(v, (int, float)))
     )
+    
+    is_auto = False
+    if total_budget == 0 and balance > 0:
+        total_budget = balance + spent
+        is_auto = True
     days_in_period = max(1, (end_excl - start).days)
     # Сьогодні рахуємо «прожитим» (+1). Клампимо в [1, days_in_period]:
     # для минулих місяців → days_in_period, для майбутніх → 1.
@@ -40,6 +47,7 @@ def compute_budget_metrics(
 
     return {
         "total_budget": total_budget,
+        "is_auto_budget": is_auto,
         "days_in_period": days_in_period,
         "days_elapsed": days_elapsed,
         "days_left": days_left,

@@ -188,7 +188,9 @@ export default function HomePage() {
 
           {/* Можна витрати */}
           <div className="flex-1 rounded-2xl bg-[#1C1C1E] p-4">
-            <p className="text-[11px] uppercase tracking-wide text-white/40 mb-1">Можна витрати</p>
+            <p className="text-[11px] uppercase tracking-wide text-white/40 mb-1">
+              {boot?.is_auto_budget ? "Залишок як бюджет" : "Можна витрати"}
+            </p>
             {totalBudget > 0 ? (
               <>
                 <p
