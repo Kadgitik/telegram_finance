@@ -11,7 +11,7 @@ import aiohttp
 
 from bot.constants import KOPECKS_PER_UAH
 from bot.services.mcc import mcc_to_category
-from bot.services.classifiers import is_internal_transfer, is_credit
+from bot.services.classifiers import is_internal_transfer, is_credit, is_savings
 
 BASE_URL = "https://api.monobank.ua"
 
@@ -151,6 +151,10 @@ def parse_statement_item(item: dict[str, Any], telegram_id: int) -> dict[str, An
 
     if is_credit(description):
         category = "Кредит"
+        internal = False
+        
+    if is_savings(description):
+        category = "Накопичення"
         internal = False
 
     return {

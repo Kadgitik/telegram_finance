@@ -137,6 +137,17 @@ async def add_savings(
     db: AsyncIOMotorDatabase = Depends(_db),
 ) -> dict:
     oid = await queries.add_saving(db, telegram_id, body.amount, body.comment, body.original_amount, body.original_currency)
+    await queries.add_transaction(
+        db, telegram_id,
+        source="cash",
+        type_="expense",
+        amount=body.amount,
+        category="Накопичення",
+        description=body.comment or "Поповнення накопичення",
+        original_amount=body.original_amount,
+        currency_code=body.original_currency,
+        date=datetime.now(timezone.utc)
+    )
     doc = await db["savings"].find_one({"_id": oid})
     assert doc
     return _out(doc)
@@ -241,6 +252,15 @@ async def deposit_goal(
     ok = await queries.deposit_goal(db, telegram_id, oid, body.amount)
     if not ok:
         raise HTTPException(404, "Не знайдено")
-    
+        
     doc = await db["goals"].find_one({"_id": oid})
+    await queries.add_transaction(
+        db, telegram_id,
+        source="cash",
+        type_="expense",
+        amount=body.amount,
+        category="Накопичення",
+        description=f"Поповнення цілі {doc['name']}",
+        date=datetime.now(timezone.utc)
+    )
     return _goal_out(doc)

@@ -82,6 +82,36 @@ async def lifespan(app: FastAPI):
             _LOGGER.info("Migration %s done, updated=%s", MIGRATION_DATE, updated)
     except Exception as e:
         _LOGGER.error("Migration %s failed: %s", "date_field_backfill_v1", e)
+
+    # Convert past Monobank transfers to jars into expenses
+    try:
+        MIGRATION_SAVINGS = "savings_internal_to_expense_v1"
+        meta = await db["meta"].find_one({"_id": MIGRATION_SAVINGS})
+        if not meta:
+            from bot.services.classifiers import SAVINGS_RE
+            updated = 0
+            async for tx in db["transactions"].find({"internal_transfer": True}):
+                desc = tx.get("description", "")
+                if SAVINGS_RE.search(desc):
+                    await db["transactions"].update_one(
+                        {"_id": tx["_id"]},
+                        {"$set": {
+                            "internal_transfer": False, 
+                            "category": "Накопичення", 
+                            "type": "expense",
+                            # If amount is positive (e.g. withdrawal from Jar), it should be "income", but usually "на банку" is expense
+                            "type": "income" if tx.get("amount", 0) > 0 and desc.lower().startswith(("з ", "зі ")) else "expense"
+                        }}
+                    )
+                    updated += 1
+            await db["meta"].insert_one({
+                "_id": MIGRATION_SAVINGS,
+                "applied_at": datetime.now(timezone.utc),
+                "updated": updated,
+            })
+            _LOGGER.info("Migration %s done, updated=%s", MIGRATION_SAVINGS, updated)
+    except Exception as e:
+        _LOGGER.error("Migration %s failed: %s", "savings_internal_to_expense_v1", e)
     bot = Bot(config.BOT_TOKEN)
     dp = build_dispatcher()
     app.state.bot = bot
