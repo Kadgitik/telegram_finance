@@ -197,7 +197,7 @@ async def sync_statement(
     now = int(time.time())
     from_ts = now - MONO_STATEMENT_MAX_SECONDS
 
-    accounts = user.get("mono_accounts", [])
+    accounts = user.get("mono_accounts", []) + user.get("mono_jars", [])
     if not accounts:
         accounts = [{"id": user.get("default_account") or "0"}]
 
@@ -275,6 +275,14 @@ async def sync_statement(
         "updated": updated_count,
     }
 
+@router.get("/webhook/{secret}")
+async def mono_webhook_verify(secret: str) -> dict:
+    """Verify webhook URL for Monobank."""
+    expected = config.MONO_WEBHOOK_SECRET
+    if not expected or not hmac.compare_digest(secret, expected):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return {"ok": True}
+
 
 @router.post("/webhook/{secret}")
 async def mono_webhook_receiver(secret: str, request: Request) -> dict:
@@ -304,9 +312,12 @@ async def mono_webhook_receiver(secret: str, request: Request) -> dict:
 
     db = get_db()
 
-    # Find user by mono account
+    # Find user by mono account or jar
     user = await db["users"].find_one({
-        "mono_accounts.id": account_id,
+        "$or": [
+            {"mono_accounts.id": account_id},
+            {"mono_jars.id": account_id},
+        ]
     })
     if not user:
         _LOGGER.warning("Mono webhook: no user for account %s", account_id)

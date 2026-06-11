@@ -43,6 +43,7 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     users = db["users"]
     await users.create_index("telegram_id", unique=True)
     await users.create_index("mono_accounts.id", sparse=True)
+    await users.create_index("mono_jars.id", sparse=True)
 
     tx = db["transactions"]
     await tx.create_index([("telegram_id", 1), ("date", -1)])
